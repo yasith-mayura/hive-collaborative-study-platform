@@ -1,0 +1,98 @@
+version: "3.8"
+services:
+  mongo:
+    image: mongo:6
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  api-gateway:
+    build: ./services/api-gateway
+    env_file: .env
+    ports:
+      - "4000:4000"
+    depends_on:
+      - mongo
+    restart: on-failure
+
+  auth-service:
+    build: ./services/auth-service
+    env_file: .env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo
+    restart: on-failure
+
+  user-service:
+    build: ./services/user-service
+    env_file: .env
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mongo
+    restart: on-failure
+
+  resource-service:
+    build: ./services/resource-service
+    env_file: .env
+    ports:
+      - "3002:3002"
+    depends_on:
+      - mongo
+    restart: on-failure
+
+  chat-service:
+    build: ./services/chat-service
+    env_file: .env
+    ports:
+      - "3003:3003"
+    depends_on:
+      - mongo
+    restart: on-failure
+
+  note-service:
+    build: ./services/note-service
+    env_file: .env
+    ports:
+      - "3004:3004"
+    depends_on:
+      - mongo
+    restart: on-failure
+
+  progress-service:
+    build: ./services/progress-service
+    env_file: .env
+    ports:
+      - "3005:3005"
+    depends_on:
+      - mongo
+    restart: on-failure
+
+  session-service:
+    build: ./services/session-service
+    env_file: .env
+    ports:
+      - "3006:3006"
+    depends_on:
+      - mongo
+    restart: on-failure
+
+  rag-service:
+    build: ./services/rag-service
+    env_file: .env
+    ports:
+      - "8000:8000"
+    restart: on-failure
+
+  frontend:
+    build: ./frontend
+    env_file: .env
+    ports:
+      - "5173:5173"
+    restart: on-failure
+
+volumes:
+  mongo-data:
