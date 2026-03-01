@@ -1,4 +1,8 @@
-import React from 'react'
+import React from "react";
 export default function AdminDashboard() {
-  return <div><h1>AdminDashboard</h1></div>
+  return (
+    <div>
+      <h1>AdminDashboard</h1>
+    </div>
+  );
 }
