@@ -23,21 +23,6 @@ const verifyToken = async (req, res) => {
   }
 };
 
-// Logout / Revoke refresh tokens
-// const logout = async (req, res) => {
-//   const { uid } = req.body;
-//   if (!uid) return res.status(400).json({ message: 'uid is required' });
-
-//   try {
-//     await admin.auth().revokeRefreshTokens(uid);
-//     return res.json({ message: 'User logged out (refresh tokens revoked)', uid });
-//   } catch (err) {
-//     console.error('Failed to revoke tokens', err);
-//     return res.status(500).json({ message: 'Failed to revoke tokens' });
-//   }
-// };
-
-
 const logout = async (req, res) => {
   // Use uid from authMiddleware
   if (!req.user || !req.user.uid) {

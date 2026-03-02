@@ -1,33 +1,3 @@
-// const express = require('express');
-// const { body, validationResult } = require('express-validator');
-// const router = express.Router();
-// const { verifyToken, logout } = require('../controllers/authController');
-
-// // POST /verify - accepts { token }
-// router.post(
-//   '/verify',
-//   [body('token').notEmpty().withMessage('token is required')],
-//   (req, res) => {
-//     const errors = validationResult(req);
-//     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-//     return verifyToken(req, res);
-//   }
-// );
-
-// // POST /logout - accepts { uid }
-// router.post(
-//   '/logout',
-//   [body('uid').notEmpty().withMessage('uid is required')],
-//   (req, res) => {
-//     const errors = validationResult(req);
-//     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
-//     return logout(req, res);
-//   }
-// );
-
-// module.exports = router;
-
-
 const express = require('express');
 const router = express.Router();
 const { verifyToken, logout } = require('../controllers/authController');

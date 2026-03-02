@@ -16,19 +16,39 @@ if (!admin.apps.length) {
   });
 }
 
+const User = require('../models/User');
+
 const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'No token provided' });
   }
-  const idToken = authHeader.split('Bearer ')[1];
+
+  const idToken = authHeader.split('Bearer ')[1].trim();
+
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
-    req.user = decoded;
+
+    // ALWAYS read role from MongoDB — custom claims in Firebase tokens
+    // only update after the user refreshes their token (logs out/in).
+    // Reading from DB ensures role changes take effect immediately.
+    const dbUser = await User.findOne({ firebaseUid: decoded.uid, isActive: true }).lean();
+
+    if (!dbUser) {
+      return res.status(401).json({ message: 'User not found or inactive' });
+    }
+
+    req.user = {
+      uid: decoded.uid,
+      email: decoded.email || null,
+      role: dbUser.role,   // always from DB, never stale
+      _id: dbUser._id,
+    };
+
     next();
   } catch (err) {
-    console.error('Firebase token verification failed', err);
-    return res.status(401).json({ message: 'Unauthorized' });
+    console.error('Firebase token verification failed', err.message);
+    return res.status(403).json({ message: 'Forbidden' });
   }
 };
 
