@@ -14,9 +14,9 @@ const verifyToken = async (req, res) => {
 
   try {
     const decoded = await admin.auth().verifyIdToken(token);
-    const role = decoded.role || (decoded.customClaims && decoded.customClaims.role) || 'student';
+    const role = decoded.role ?? "student";
 
-    return res.json({ uid: decoded.uid, email: decoded.email || null, role });
+    return res.json({ uid: decoded.uid, email: decoded.email, role });
   } catch (err) {
     console.error('Token verification failed', err);
     return res.status(403).json({ message: 'Invalid token' });
