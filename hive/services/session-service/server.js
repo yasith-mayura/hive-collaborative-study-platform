@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const dotenv = require('dotenv');
 const connectDB = require('./src/config/db');
+const studySessionRoutes = require('./src/routes/studySessionRoutes');
 
 dotenv.config();
 const PORT = process.env.PORT || 3006;
@@ -16,6 +17,9 @@ app.use(express.json());
 
 app.get('/', (req, res) => res.json({ status: 'ok', service: 'session-service' }));
 app.get('/health', (req, res) => res.json({ status: 'OK', service: 'session-service' }));
+
+app.use('/api/studysession', studySessionRoutes);
+
 
 app.listen(PORT, () => {
   console.log('session-service listening on port', PORT);
