@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
 #  🐝 HIVE API Gateway — Manual Test Suite
-#  Run:  bash tests/test-gateway.sh eyJhbGciOiJSUzI1NiIsImtpZCI6IjJhYWM0MWY3NTA4OGZlOGUwOWEwN2Q0NDRjZmQ2YjhjZTQ4MTJhMzEiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoiU3VwZXIgQWRtaW4iLCJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vaGl2ZS1hcHAtNTcyZDUiLCJhdWQiOiJoaXZlLWFwcC01NzJkNSIsImF1dGhfdGltZSI6MTc3MjYxNjgzOCwidXNlcl9pZCI6IktDSWozNDMzNDJWZDRxb2pYTzdzYVNOTzJrSzIiLCJzdWIiOiJLQ0lqMzQzMzQyVmQ0cW9qWE83c2FTTk8ya0syIiwiaWF0IjoxNzcyNjE2ODM4LCJleHAiOjE3NzI2MjA0MzgsImVtYWlsIjoic3VwZXJhZG1pbkBoaXZlLmtsbi5hYy5sayIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJzdXBlcmFkbWluQGhpdmUua2xuLmFjLmxrIl19LCJzaWduX2luX3Byb3ZpZGVyIjoicGFzc3dvcmQifX0.0OeMs587K36_7U-YrK4ZEWqHcWqSq43e61eVAw_pPB8cpQu-fMx7GX6o2KN32niqaFnkIScNsGtCBeWbKkJ7Fr_vXaJTvGl5rCbAjbWzcp1JitISCbMvzaMODkKGcjylqR5_fC7O90PfBMfchSDdnSGv8yxz_d6f0n2gHbCmy7JCJltglcNnvyEOfgD6crUQxZjrUVvFLQaeTxfAT3dd0J20kwiQ-hrMT1YnLE0Xo0WpGoKnpePhsGt5drekERvuBwUlsXeRRw8ci1xpks5DAT0zvMNxqf6uyLnO077XDRsUySZxSNvSrtH-4xyvq-l4CfkeS4fKGbaYQ4w0j2ueRw
-# ─────────────────────────────────────────────────────────────────────────────
+#  Run:  bash tests/test-gateway.sh <FIREBASE_ID_TOKEN>
 set -euo pipefail
 
 GW="http://localhost:4000"
