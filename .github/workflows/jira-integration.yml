@@ -249,7 +249,7 @@ jobs:
                         },
                         {
                           type: 'text',
-                          text: generated?.title || title,
+                          text: `#${title}`,
                           marks: [{ type: 'link', attrs: { href: prUrl } }]
                         }
                       ]
