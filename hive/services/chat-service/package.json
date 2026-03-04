@@ -6,13 +6,21 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "mongoose": "^7.5.0",
+    "cors": "^2.8.6",
     "dotenv": "^16.3.1",
-    "cors": "^2.8.5",
-    "helmet": "^7.0.0",
-    "firebase-admin": "^12.0.0",
+    "express": "^4.22.1",
     "express-validator": "^7.0.1",
-    "socket.io": "^4.7.0"
-  }
+    "firebase-admin": "^12.0.0",
+    "helmet": "^7.0.0",
+    "mongoose": "^7.8.9",
+    "socket.io": "^4.8.3"
+  },
+  "description": "",
+  "directories": {
+    "test": "tests"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
 }
