@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, React } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { useSidebar } from "@/context/sidebarContext";
-import { useAuth } from "@/context/authContext";
+import { useAuth } from "@/context/AuthContext";
 
 import UserDropdown from "./UserDropdown";
 import NewBtn from "./Newbtn";
@@ -10,7 +10,7 @@ import NewBtn from "./Newbtn";
 const AppHeader = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
-  const { authData } = useAuth();
+  const { user, role } = useAuth();
   const inputRef = useRef(null);
 
   const location = useLocation();
@@ -79,12 +79,10 @@ const AppHeader = () => {
           </button>
           <h1 className="text-lg font-semibold flex items-center gap-2">
             {mainModule}
-            {(subModule && (subModule !== "New" )) && (
+            {subModule && subModule !== "New" && (
               <>
                 <span className="font-semibold">/</span>
-                <span className="text-sm font-semibold">
-                  {subModule}
-                </span>
+                <span className="text-sm font-semibold">{subModule}</span>
               </>
             )}
           </h1>
@@ -125,9 +123,12 @@ const AppHeader = () => {
           {/* <>
             <NewBtn />
           </> */}
-          <>
-            <UserDropdown user={{ name: authData.name, role: authData.role }} />
-          </>
+          <UserDropdown
+            user={{
+              name: user?.displayName || user?.email || "User",
+              role: role,
+            }}
+          />
         </div>
       </div>
     </header>
