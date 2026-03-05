@@ -1,37 +1,120 @@
-import { createContext, useState, useContext, useEffect, React } from "react";
-const AuthContext = createContext();
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
+import { auth } from "@/config/firebase";
+import { logoutSession, registerUser, verifyToken } from "@/services";
 
-export const useAuth = () => {
-  return useContext(AuthContext);
+const AuthContext = createContext(null);
+export const useAuth = () => useContext(AuthContext);
+
+const TOKEN_KEY = "token";
+
+const getErrorMessage = (error, fallbackMessage) => {
+  return (
+    error?.response?.data?.message ||
+    error?.message ||
+    fallbackMessage
+  );
 };
 
 export const AuthProvider = ({ children }) => {
-  const [authData, setAuthData] = useState({
-    // token: localStorage.getItem("token") || null,
-    name: localStorage.getItem("name") || "Jhon doe", //null
-    role: localStorage.getItem("role") || "ADMIN",//null
-    // tenantCode: localStorage.getItem("tenantCode") || null,
-  });
+  const [user, setUser] = useState(null);
+  const [role, setRole] = useState("student");
+  const [loading, setLoading] = useState(true);
 
-  const login = (token, name, role, tenantCode) => {
-    // localStorage.setItem("token", token);
-    localStorage.setItem("name", name);
-    localStorage.setItem("role", role);
-    // localStorage.setItem("tenantCode", tenantCode);
-    setAuthData({ name, role,  }) //tenantCode,token
+  const setAuthState = (firebaseUser, backendUser = null) => {
+    setUser(firebaseUser || null);
+    setRole(backendUser?.role || "student");
   };
 
-  const logout = () => {
-    // localStorage.removeItem("token");
-    localStorage.removeItem("name");
-    localStorage.removeItem("role");
-    // localStorage.removeItem("tenantCode");
-    setAuthData({  name: null, role: null,  }) //token: null,tenantCode:null
+  const clearSession = async () => {
+    localStorage.removeItem(TOKEN_KEY);
+    setAuthState(null, null);
   };
 
-  return (
-    <AuthContext.Provider value={{ authData, login, logout }}>
-      {children}
-    </AuthContext.Provider>
+  const syncSessionFromFirebaseUser = async (firebaseUser) => {
+    const idToken = await firebaseUser.getIdToken();
+    localStorage.setItem(TOKEN_KEY, idToken);
+
+    const verifiedUser = await verifyToken(idToken);
+    setAuthState(firebaseUser, verifiedUser);
+
+    return verifiedUser;
+  };
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        await clearSession();
+        setLoading(false);
+        return;
+      }
+
+      try {
+        await syncSessionFromFirebaseUser(currentUser);
+      } catch (error) {
+        // If backend verification fails, clear stale state and sign the user out.
+        await signOut(auth);
+        await clearSession();
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  const signup = async ({ name, email, password, studentNumber }) => {
+    try {
+      await registerUser({ name, email, password, studentNumber });
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      await syncSessionFromFirebaseUser(credential.user);
+      return credential.user;
+    } catch (error) {
+      throw new Error(getErrorMessage(error, "Signup failed"));
+    }
+  };
+
+  const login = async ({ email, password }) => {
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      await syncSessionFromFirebaseUser(credential.user);
+      return credential.user;
+    } catch (error) {
+      throw new Error(getErrorMessage(error, "Login failed"));
+    }
+  };
+
+  const logout = async () => {
+    try {
+      const token = localStorage.getItem(TOKEN_KEY);
+
+      if (token) {
+        await logoutSession(token);
+      }
+    } catch (error) {
+      // Ignore backend logout failures so local logout always succeeds.
+    } finally {
+      await signOut(auth);
+      await clearSession();
+    }
+  };
+
+  const value = useMemo(
+    () => ({
+      user,
+      role,
+      loading,
+      isAuthenticated: !!user,
+      signup,
+      login,
+      logout,
+    }),
+    [user, role, loading]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
