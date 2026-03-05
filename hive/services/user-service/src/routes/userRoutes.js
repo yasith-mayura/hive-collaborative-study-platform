@@ -19,6 +19,9 @@ router.get('/users', authMiddleware, requireRole('admin', 'superadmin'), getAllU
 // GET /users/:studentNumber - admin, superadmin or own profile
 router.get('/users/:studentNumber', authMiddleware, getUserById);
 
+// POST /users/register - public student self-registration
+router.post('/users/register', validateCreateUser, createUser);
+
 // POST /users - admin or superadmin
 router.post('/users', authMiddleware, requireRole('admin', 'superadmin'), validateCreateUser, createUser);
 
