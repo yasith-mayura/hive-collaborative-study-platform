@@ -1,4 +1,6 @@
-import {  React } from "react";
+import { React } from "react";
+import { useAuth } from "@/context/authContext";
+import { React } from "react";
 import { useAuth } from "@/context/AuthContext";
 
 import Dropdown from "@/components/ui/Dropdown";
@@ -13,27 +15,29 @@ const UserDropdown = ({ user }) => {
         <Dropdown
           label={
             <>
-            <div
-              className="flex items-center text-gray-700"
-            >
-              <span className="mr-3 overflow-hidden rounded-full h-10 w-10">
-                <img
-                  src="https://img.freepik.com/premium-photo/happy-man-ai-generated-portrait-user-profile_1119669-1.jpg"
-                  alt="User"
-                />
-              </span>
+              <div
+                className="flex items-center text-gray-700"
+              >
+                <span className="flex items-center justify-center mr-3 rounded-full h-10 w-10 bg-primary-500 text-white font-semibold text-sm">
+                  {user.name
+                    ?.split(" ")
+                    .filter(Boolean)
+                    .map((n) => n[0].toUpperCase())
+                    .slice(0, 2)
+                    .join("")}
+                </span>
 
-              <div className="flex flex-col justify-center items-start">
-                <span className="block mr-1 font-medium text-sm">
-                  {" "}
-                  {user.name}
-                </span>
-                <span className="block mr-1 font-medium text-xs">
-                  {" "}
-                  {user.role}
-                </span>
-              </div>
-              {/* <svg
+                <div className="flex flex-col justify-center items-start">
+                  <span className="block mr-1 font-medium text-sm">
+                    {" "}
+                    {user.name}
+                  </span>
+                  <span className="block mr-1 font-medium text-xs">
+                    {" "}
+                    {user.role}
+                  </span>
+                </div>
+                {/* <svg
                 className={`stroke-gray-500  transition-transform duration-200 `}
                 width="18"
                 height="20"
@@ -49,7 +53,7 @@ const UserDropdown = ({ user }) => {
                   strokeLinejoin="round"
                 />
               </svg> */}
-            </div>
+              </div>
             </>
           }
           labelClass="py-0 "

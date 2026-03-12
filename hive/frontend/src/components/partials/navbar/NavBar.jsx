@@ -79,7 +79,7 @@ const AppHeader = () => {
           </button>
           <h1 className="text-lg font-semibold flex items-center gap-2">
             {mainModule}
-            {subModule && subModule !== "New" && (
+            {(subModule && (subModule !== "New")) && (
               <>
                 <span className="font-semibold">/</span>
                 <span className="text-sm font-semibold">{subModule}</span>
@@ -90,7 +90,7 @@ const AppHeader = () => {
             <img
               className="dark:hidden "
               width={150}
-              src="https://www.getcleveri.com/wp-content/uploads/2023/09/logo-dark.png"
+              src="/logo-dark.png"
               alt="Logo"
             />
           </Link>
@@ -116,9 +116,8 @@ const AppHeader = () => {
           </button>
         </div>
         <div
-          className={`${
-            isApplicationMenuOpen ? "flex" : "hidden"
-          } justify-between items-center  w-full gap-10 px-5 py-0 lg:flex shadow-theme-md lg:justify-end lg:px-5 lg:shadow-none`}
+          className={`${isApplicationMenuOpen ? "flex" : "hidden"
+            } justify-between items-center  w-full gap-10 px-5 py-0 lg:flex shadow-theme-md lg:justify-end lg:px-5 lg:shadow-none`}
         >
           {/* <>
             <NewBtn />
