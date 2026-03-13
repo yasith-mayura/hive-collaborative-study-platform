@@ -22,11 +22,6 @@ const resourceSchema = new mongoose.Schema(
       enum: ['past_paper', 'resource_book', 'note'],
       required: true,
     },
-    title: {
-      type: String,
-      required: true,
-      trim: true,
-    },
     fileName: {
       type: String,
       required: true,
@@ -46,14 +41,6 @@ const resourceSchema = new mongoose.Schema(
     s3Url: {
       type: String,
       required: true,
-    },
-    uploadedBy: {
-      type: String,   // Firebase UID of the admin who uploaded
-      default: null,
-    },
-    downloadCount: {
-      type: Number,
-      default: 0,
     },
     isActive: {
       type: Boolean,

@@ -33,10 +33,6 @@ const subjectSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
-    createdBy: {
-      type: String,   // Firebase UID of the admin who created it
-      default: null,
-    },
     isActive: {
       type: Boolean,
       default: true,
