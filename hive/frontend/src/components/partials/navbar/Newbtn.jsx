@@ -20,20 +20,21 @@ const NewBtn = () => {
         classMenuItems="mt-2 w-[200px]"
         items={[
           {
-            label: "New Department",
-            link: "/departments/new",
+            label: "New Admin",
+            link: "/admin",
             icon: "heroicons-outline:building-office",
           },
           {
-            label: "New Location",
-            link: "/locations/new",
-            icon: "heroicons-outline:map-pin",
-          },
-          {
             label: "New User",
-            link: "/users/new",
+            link: "/admin/users",
             icon: "heroicons-outline:user-plus",
           },
+          {
+            label: "New Group chat",
+            link: "/admin/groups",
+            icon: "heroicons-outline:map-pin",
+          },
+          
         ]}
       ></Dropdown>
     </div>

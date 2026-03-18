@@ -105,7 +105,7 @@ const Select = ({
 
         {/* icon */}
         <div className="flex text-xl absolute ltr:right-[14px] rtl:left-[14px] top-1/2 -translate-y-1/2  space-x-1 rtl:space-x-reverse">
-          <span className=" relative -right-2 inline-block text-slate-900 dark:text-slate-300 pointer-events-none">
+          <span className=" relative -right-2 inline-block text-slate-900 pointer-events-none">
             <Icon icon="heroicons:chevron-down" />
           </span>
           {error && (

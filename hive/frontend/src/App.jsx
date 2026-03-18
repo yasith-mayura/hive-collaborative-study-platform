@@ -14,9 +14,15 @@ import StudySession from "./pages/StudySession";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 
+import NewAdmin from "./pages/superadmin/NewAdmin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import UserManagement from "./pages/admin/UserManagement";
 import GroupManagement from "./pages/admin/GroupManagement";
+
+import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
+import UserManagementSuperAdmin from "./pages/superadmin/UserManagementSuperAdmin";
+import AdminManagement from "./pages/superadmin/AdminManagement";
+import GroupManagementSuperAdmin from "./pages/superadmin/GroupsManagementSuperAdmin";
 
 import AppLayout from "./layout/appLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -46,6 +52,11 @@ export default function App() {
             <Route path="admin" element={<AdminDashboard />} />
             <Route path="admin/users" element={<UserManagement />} />
             <Route path="admin/groups" element={<GroupManagement />} />
+
+            <Route path="superadmin" element={<SuperAdminDashboard />} />
+            <Route path="superadmin/users" element={<UserManagementSuperAdmin />} />
+            <Route path="superadmin/admins" element={<AdminManagement />} />
+            <Route path="superadmin/groups" element={<GroupManagementSuperAdmin />} />
           </Route>
         </Route>
       </Routes>

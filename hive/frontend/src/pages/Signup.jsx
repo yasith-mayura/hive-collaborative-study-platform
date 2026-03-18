@@ -5,8 +5,8 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 
 import { useAuth } from "@/context/AuthContext";
-import Notification from "@/components/ui/Notification";
 
+import Notification from "@/components/ui/Notification";
 import Textinput from "@/components/ui/Textinput";
 import Button from "@/components/ui/Button";
 

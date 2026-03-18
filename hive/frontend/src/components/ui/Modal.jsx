@@ -14,7 +14,7 @@ const Modal = ({
   footerContent,
   centered,
   scrollContent,
-  themeClass = "bg-slate-900 dark:bg-slate-800 dark:border-b dark:border-slate-700",
+  themeClass = "bg-slate-900",
   title = "Basic Modal",
   mainXPadding = "px-6",
   mainYPadding = "py-8",
@@ -37,7 +37,7 @@ const Modal = ({
           }`}
         >
           <DialogPanel
-            className={`w-full transform overflow-hidden rounded-md bg-white dark:bg-slate-800 text-left align-middle shadow-xl ${className}`}
+            className={`w-full transform overflow-hidden rounded-md bg-white  text-left align-middle shadow-xl ${className}`}
           >
             {type === "ai-skill" ? (
               <div className="flex w-full">
@@ -77,7 +77,7 @@ const Modal = ({
 
             {footerContent && (
               <div
-                className={`${footerXPadding} ${footerYPadding} flex justify-end space-x-3 border-t border-slate-100 dark:border-slate-700`}
+                className={`${footerXPadding} ${footerYPadding} flex justify-end space-x-3 border-t border-slate-100`}
               >
                 {footerContent}
               </div>

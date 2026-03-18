@@ -164,11 +164,11 @@ const ImageUpload = ({
             <section className="container">
               <div {...getRootProps({ style })}>
                 <input {...getInputProps()} />
-                <p className="block text-slate-600 dark:text-slate-300 text-sm font-normal">
+                <p className="block text-slate-600  text-sm font-normal">
                   Drag and drop an image here or click to select an image.
                 </p>
                 {helpMessage && helpMessage != "" ? (
-                  <span className="block text-slate-500 dark:text-slate-300 text-xs font-normal">
+                  <span className="block text-slate-500  text-xs font-normal">
                     {helpMessage}
                   </span>
                 ) : (

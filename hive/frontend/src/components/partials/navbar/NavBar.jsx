@@ -88,7 +88,7 @@ const AppHeader = () => {
           </h1>
           <Link to="/dashboard" className="lg:hidden">
             <img
-              className="dark:hidden "
+              className=""
               width={150}
               src="/logo-dark.png"
               alt="Logo"
@@ -97,7 +97,7 @@ const AppHeader = () => {
 
           <button
             onClick={toggleApplicationMenu}
-            className="flex items-center justify-center w-8 h-8 text-gray-700 rounded-md z-99999 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
+            className="flex items-center justify-center w-8 h-8 text-gray-700 rounded-md z-99999 hover:bg-gray-100 lg:hidden"
           >
             <svg
               width="24"
@@ -119,9 +119,11 @@ const AppHeader = () => {
           className={`${isApplicationMenuOpen ? "flex" : "hidden"
             } justify-between items-center  w-full gap-10 px-5 py-0 lg:flex shadow-theme-md lg:justify-end lg:px-5 lg:shadow-none`}
         >
-          {/* <>
+          <>
+          {role === "superadmin" && (
             <NewBtn />
-          </> */}
+          )}
+          </>
           <UserDropdown
             user={{
               name: user?.displayName || user?.email || "User",

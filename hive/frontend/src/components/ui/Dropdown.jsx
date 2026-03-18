@@ -53,7 +53,7 @@ const Dropdown = ({
         >
           <MenuItems
             className={`absolute  border border-slate-100 
-            rounded bg-white dark:bg-slate-800 dark:border-slate-700 shadow-dropdown z-[9999]
+            rounded bg-white shadow-dropdown z-[9999]
             ${classMenuItems} focus:outline-none focus:ring-0
             `}
           >
@@ -66,11 +66,11 @@ const Dropdown = ({
                         <div
                           className={`${
                             active
-                              ? "bg-slate-100 text-slate-900 dark:bg-slate-600 dark:text-slate-300 dark:bg-opacity-50"
-                              : "text-slate-600 dark:text-slate-300"
+                              ? "bg-slate-100 text-slate-900 "
+                              : "text-slate-600"
                           } block     ${
                             item.hasDivider
-                              ? "border-t border-slate-100 dark:border-slate-700"
+                              ? "border-t border-slate-100"
                               : ""
                           }`}
                         >

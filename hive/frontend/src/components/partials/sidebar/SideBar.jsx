@@ -9,49 +9,93 @@ const navItems = [
     icon: "home",
     name: "Dashboard",
     path: "/",
-    allowed: ["student", "admin", "superAdmin"],
+    allowed: ["student"],
   },
   {
     icon: "chat-bubble-left-right",
     name: "Chat",
     path: "/chat",
-    allowed: ["student", "admin", "superAdmin"],
+    allowed: ["student"],
   },
   {
     icon: "folder-open",
     name: "Resources",
     path: "/resources",
-    allowed: ["student", "admin", "superAdmin"],
+    allowed: ["student"],
   },
   {
     icon: "sparkles",
     name: "AI Support",
     path: "/ai",
-    allowed: ["student", "admin", "superAdmin"],
+    allowed: ["student"],
   },
   {
     icon: "clock",
     name: "Study Session Reminders",
     path: "/session",
-    allowed: ["student", "admin", "superAdmin"],
+    allowed: ["student" ],
   },
   {
     icon: "rectangle-stack",
     name: "Flashcard Creation",
     path: "/flashcards",
-    allowed: ["student", "admin", "superAdmin"],
+    allowed: ["student" ],
   },
   {
     icon: "chart-bar",
     name: "Progress Tracking",
     path: "/progress",
-    allowed: ["student", "admin", "superAdmin"],
+    allowed: ["student"],
   },
   {
     icon: "book-open",
     name: "Notes",
     path: "/notes",
-    allowed: ["student", "admin", "superAdmin"],
+    allowed: ["student"],
+  },
+// Admin  specific items
+  {
+    icon: "home",
+    name: "Dashboard",
+    path: "/admin",
+    allowed: ["admin"],
+  },
+  {
+    icon: "users",
+    name: "User Management",
+    path: "/admin/users",
+    allowed: [ "admin"],
+  },
+  {
+    icon: "users",
+    name: "Groups",
+    path: "/admin/groups",
+    allowed: [ "admin"],
+  },
+// Superadmin specific items
+  {
+    icon: "home",
+    name: "Dashboard",
+    path: "/superadmin",
+    allowed: ["superadmin"],
+  },
+  {
+    icon: "users",
+    name: "User Management",
+    path: "/admin/users",
+    allowed: [ "superadmin"],
+  },
+  {
+    icon: "users",
+    name: "Admin Management",
+    path: "/admin/users",
+    allowed: [ "superadmin"],
+  },
+  {
+    icon: "users",
+    name: "Groups",
+    path: "/admin/users",
+    allowed: [ "superadmin"],
   },
 ];
 
@@ -61,7 +105,7 @@ const AppSidebar = () => {
   const [openSubmenu, setOpenSubmenu] = useState(null);
   const { authData } = useAuth();
 
-  authData.role = "ADMIN"; // For testing purposes, set role to ADMIN
+  // authData.role = "ADMIN"; // For testing purposes, set role to ADMIN
 
   const { role } = useAuth(); // ✅ from firebase context
 

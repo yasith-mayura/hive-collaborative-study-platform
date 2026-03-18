@@ -23,7 +23,7 @@ const Pagination = ({
         <li>
           {text ? (
             <button
-              className=" text-slate-600 dark:text-slate-300 prev-next-btn"
+              className=" text-slate-600 prev-next-btn"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
             >
@@ -31,7 +31,7 @@ const Pagination = ({
             </button>
           ) : (
             <button
-              className="text-xl leading-4 text-slate-900 dark:text-white h-6  w-6 flex  items-center justify-center flex-col prev-next-btn "
+              className="text-xl leading-4 text-slate-900 h-6  w-6 flex  items-center justify-center flex-col prev-next-btn "
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
             >
@@ -57,13 +57,13 @@ const Pagination = ({
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className=" text-slate-600 dark:text-slate-300 prev-next-btn"
+              className=" text-slate-600  prev-next-btn"
             >
               Next
             </button>
           ) : (
             <button
-              className="text-xl leading-4 text-slate-900 dark:text-white  h-6  w-6 flex  items-center justify-center flex-col prev-next-btn"
+              className="text-xl leading-4 text-slate-900  h-6  w-6 flex  items-center justify-center flex-col prev-next-btn"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
             >

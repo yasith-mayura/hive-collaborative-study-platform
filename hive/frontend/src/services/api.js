@@ -1,86 +1,253 @@
-import axios from "axios";
+// import axios from "axios";
+import instance from "../lib/axios";
 
-const trimTrailingSlash = (value) => value.replace(/\/$/, "");
-
-const AUTH_BASE_URL = trimTrailingSlash(
-  import.meta.env.VITE_AUTH_SERVICE_URL || "http://localhost:3000"
-);
-
-const USER_BASE_URL = trimTrailingSlash(
-  import.meta.env.VITE_USER_SERVICE_URL || "http://localhost:3001"
-);
-
-const API_GATEWAY_BASE_URL = trimTrailingSlash(
-  import.meta.env.VITE_API_GATEWAY_URL || "http://localhost:4000/api/v1"
-);
-
-const REGISTER_CANDIDATE_ENDPOINTS = [
-  import.meta.env.VITE_REGISTER_ENDPOINT,
-  `${USER_BASE_URL}/api/users/register`,
-  `${USER_BASE_URL}/api/users`,
-  `${USER_BASE_URL}/users`,
-  `${API_GATEWAY_BASE_URL}/users/register`,
-  `${API_GATEWAY_BASE_URL}/users`,
-].filter(Boolean);
-
-export const registerUser = async ({ name, email, password, studentNumber }) => {
-  let latestError = null;
-
-  for (const url of REGISTER_CANDIDATE_ENDPOINTS) {
-    try {
-      const response = await axios.post(url, {
-        name,
-        email,
-        password,
-        studentNumber,
-      });
-
-      return response.data;
-    } catch (error) {
-      const statusCode = error?.response?.status;
-
-      // Try the next candidate if this endpoint does not exist.
-      if (statusCode === 404) {
-        continue;
-      }
-
-      latestError = error;
-      break;
-    }
-  }
-
-  if (latestError) {
-    throw latestError;
-  }
-
-  throw new Error("No signup endpoint is reachable. Set VITE_REGISTER_ENDPOINT in frontend/.env");
-};
-
-export const verifyToken = async (idToken) => {
-  const response = await axios.post(
-    `${AUTH_BASE_URL}/auth/verify`,
+export const verifyToken = async () => {
+  const response = await instance.authService.post(
+    `/auth/verify`,
     {},
     {
-      headers: {
-        Authorization: `Bearer ${idToken}`,
-      },
-    }
+      headers: instance.defaultHeaders()
+    },
   );
 
   return response.data;
 };
 
-export const logoutSession = async (idToken) => {
-  const response = await axios.post(
-    `${AUTH_BASE_URL}/auth/logout`,
+export const logoutSession = async () => {
+  const response = await instance.authService.post(
+    `/auth/logout`,
     {},
     {
-      headers: {
-        Authorization: `Bearer ${idToken}`,
-      },
-    }
+      headers: instance.defaultHeaders()
+    },
   );
 
   return response.data;
 };
+
+//Auth Service APIs end
+
+//User Service APIs begin
+
+
+//--------------Users------------------
+export const registerUser = async ({
+  name,
+  email,
+  password,
+  studentNumber,
+}) => {
+  const response = await instance.userService.post(`/api/users/register`, {
+    name,
+    email,
+    password,
+    studentNumber,
+  });
+
+  return response.data;
+};
+
+export const getAllUsers = async () => {
+  const response = await instance.userService.get(`/api/users`, {
+    headers: instance.defaultHeaders()
+  });
+  return response.data;
+};
+
+export const getUserByStudentNumber = async (studentNumber) => {
+  const response = await instance.userService.get(
+    `/api/users/${encodeURIComponent(studentNumber)}`,
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};
+
+export const createUser = async ({ name, email, password, studentNumber }) => {
+  const response = await instance.userService.post(
+    `/api/users`,
+    {
+      name,
+      email,
+      password,
+      studentNumber,
+    },
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};
+
+export const deleteUser = async (studentNumber) => {
+  const response = await instance.userService.delete(
+    `/api/users/${encodeURIComponent(studentNumber) }`,
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};
+
+
+//--------------Admins------------------
+
+export const getAllAdmins = async () => {
+  const response = await instance.userService.get(`/api/admins`, {
+    headers: instance.defaultHeaders()
+  });
+  return response.data;
+}
+
+export const createAdmin = async ({ name, email, password, studentNumber }) => {
+  const response = await instance.userService.post(
+    `/api/admins`,
+    {
+      name,
+      email,
+      password,
+      studentNumber,
+    },
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};
+
+export const deleteAdmin = async (studentNumber) => {
+  const response = await instance.userService.delete(
+    `/api/admins/${encodeURIComponent(studentNumber)}`,
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};
+
+//User Service APIs end
+
+
+//Resource Service APIs begin
+
+//--------------Resources------------------
+
+
+
+
+//Resource Service APIs end
+
+//Chat Service APIs begin
+
+//--------------Chat------------------
+
+
+
+
+
+//Chat Service APIs end
+
+//Note Service APIs begin
+
+//--------------Notes------------------
+
+
+
+
+//Note Service APIs end
+
+//Progress Service APIs begin
+
+//--------------Progress------------------
+
+
+
+
+//Progress Service APIs end
+
+//Session Service APIs begin
+
+//--------------Sessions------------------
+
+export const getAllSessions = async () => {
+  const response = await instance.sessionService.get(`/api/studysession`, {
+    headers: instance.defaultHeaders()
+  });
+  return response.data;
+};
+
+export const getCurrentMonthSessions = async () => {
+  const response = await instance.sessionService.get(`/api/studysession/current-month`, {
+    headers: instance.defaultHeaders()
+  });
+  return response.data;
+}
+
+export const getNextMonthSessions = async () => {
+  const response = await instance.sessionService.get(`/api/studysession/next-month`, {
+    headers: instance.defaultHeaders()
+  });
+  return response.data;
+}
+
+export const getSessionsByMonth = async (month) => {
+  const response = await instance.sessionService.get(`/api/studysession/month/${month}`, {
+    headers: instance.defaultHeaders()
+  });
+  return response.data;
+}
+
+export const getSessionById = async (id) => {
+  const response = await instance.sessionService.get(`/api/studysession/${id}`, {
+    headers: instance.defaultHeaders() 
+  });
+  return response.data;
+};
+
+//--------------Admin-only Session APIs------------------//
+
+export const createSession = async ({ title, description, date, time, duration }) => {
+  const response = await instance.sessionService.post(
+    `/api/studysession/create`,
+    {
+      title,
+      description,
+      date,
+      time,
+      duration,
+    },
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};
+
+export const updateSession = async (id, { title, description, date, time, duration }) => {
+  const response = await instance.sessionService.put(
+    `/api/studysession/update/${id}`,
+    { title, description, date, time, duration },
+    {
+      headers: instance.defaultHeaders() 
+    },
+  );
+  return response.data;
+};
+
+export const deleteSession = async (id) => {
+  const response = await instance.sessionService.delete(
+    `/api/studysession/delete/${id}`,
+    {
+      headers: instance.defaultHeaders() 
+    },
+  );
+  return response.data;
+};
+
+
+
+
+//Session Service APIs end
+
 

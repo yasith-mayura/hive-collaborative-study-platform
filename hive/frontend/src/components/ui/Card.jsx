@@ -16,7 +16,7 @@ const Card = ({
   return (
     <div
       className={`
-        card rounded-md bg-white dark:bg-slate-800 shadow-base
+        card rounded-md bg-white  shadow-base
     ${className}
         `}
     >

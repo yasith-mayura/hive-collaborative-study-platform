@@ -43,7 +43,7 @@ const Drawer = ({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" />
+          <div className="fixed inset-0 bg-black/30 transition-opacity" />
         </TransitionChild>
 
         <div className="fixed inset-0 overflow-hidden">

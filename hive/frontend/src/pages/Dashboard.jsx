@@ -6,7 +6,6 @@ import { Calendar, momentLocalizer } from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
-import { useAuth } from "@/context/authContext";
 import PomodoroTimer from "@/components/PomodoroTimer";
 import UpcomingTasks from "@/components/UpcomingTasks";
 import GPAWidget from "@/components/GPAWidget";
