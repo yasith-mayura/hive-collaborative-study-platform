@@ -19,7 +19,7 @@ const fileFilter = (req, file, cb) => {
     cb(
       Object.assign(new Error('Only PDF files are allowed'), { code: 'INVALID_FILE_TYPE' }),
       false
-    );
+    ); 
   }
 };
 
