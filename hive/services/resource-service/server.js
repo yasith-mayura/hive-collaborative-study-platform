@@ -1,9 +1,9 @@
 require('dotenv').config();
 
-const express        = require('express');
-const cors           = require('cors');
-const helmet         = require('helmet');
-const connectDB      = require('./src/config/db');
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const connectDB = require('./src/config/db');
 const resourceRoutes = require('./src/routes/resourceRoutes');
 
 const PORT = process.env.PORT || 3002;
@@ -18,22 +18,22 @@ app.use(express.json());
 
 // ── Health check (public) ────────────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({
-  status:    'OK',
-  service:   'resource-service',
-  s3Bucket:  process.env.S3_BUCKET_NAME || 'hive-study-resources',
+  status: 'OK',
+  service: 'resource-service',
+  s3Bucket: process.env.S3_BUCKET_NAME || 'hive-study-resources',
   timestamp: new Date().toISOString(),
 }));
 
 app.get('/', (req, res) => res.json({
-  status:  'OK',
+  status: 'OK',
   service: 'resource-service',
   version: '1.0.0',
   endpoints: {
-    subjects:  '/resources/subjects',
-    upload:    'POST /resources/upload',
-    resources: '/resources/subject/:subjectId',
-    download:  '/resources/:resourceId/download',
-    stats:     '/resources/stats',
+    subjects: '/resources/subjects',
+    upload: 'POST /resources/upload',
+    resources: '/resources/subject/:subjectCode',
+    download: '/resources/:resourceId/download',
+    stats: '/resources/stats',
   },
 }));
 

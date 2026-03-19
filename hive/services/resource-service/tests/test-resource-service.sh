@@ -105,7 +105,7 @@ else
   STATUS=$(req POST "$BASE_URL/resources/subjects" \
     -H "Authorization: Bearer $ADMIN_TOKEN" \
     -H "Content-Type: application/json" \
-    -d '{"subjectId":"SE3050","subjectName":"Software Architecture","subjectCode":"SE3050","level":3,"semester":1,"description":"Test subject"}')
+    -d '{"subjectCode":"SE3050","subjectName":"Software Architecture","level":3,"semester":1,"description":"Test subject"}')
   check "POST /resources/subjects → 201" 201 "$STATUS"
   echo "       Response: $(body)"
 
@@ -134,7 +134,7 @@ else
     STATUS=$(req POST "$BASE_URL/resources/upload" \
       -H "Authorization: Bearer $ADMIN_TOKEN" \
       -F "file=@/tmp/test.pdf" \
-      -F "subjectId=SE3050" \
+      -F "subjectCode=SE3050" \
       -F "resourceType=note" \
       -F "title=Test Note")
     check "POST /resources/upload (PDF) → 201" 201 "$STATUS"
@@ -160,7 +160,7 @@ else
   STATUS=$(req POST "$BASE_URL/resources/upload" \
     -H "Authorization: Bearer $ADMIN_TOKEN" \
     -F "file=@/tmp/test.txt" \
-    -F "subjectId=SE3050" \
+    -F "subjectCode=SE3050" \
     -F "resourceType=note" \
     -F "title=Should Fail")
   check "POST /resources/upload (TXT, non-PDF) → 400" 400 "$STATUS"

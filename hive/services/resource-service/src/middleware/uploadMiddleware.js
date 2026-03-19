@@ -6,7 +6,7 @@ const { S3Client } = require('@aws-sdk/client-s3');
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'ap-southeast-1',
   credentials: {
-    accessKeyId:     process.env.AWS_ACCESS_KEY_ID,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
 });
@@ -19,7 +19,7 @@ const fileFilter = (req, file, cb) => {
     cb(
       Object.assign(new Error('Only PDF files are allowed'), { code: 'INVALID_FILE_TYPE' }),
       false
-    ); 
+    );
   }
 };
 
@@ -30,18 +30,18 @@ const s3Storage = multerS3({
   contentType: multerS3.AUTO_CONTENT_TYPE,
   metadata: (req, file, cb) => {
     cb(null, {
-      uploadedBy:   req.user?.uid      || 'unknown',
-      subjectId:    req.body.subjectId || 'unknown',
+      uploadedBy: req.user?.uid || 'unknown',
+      subjectCode: req.body.subjectCode || 'unknown',
       resourceType: req.body.resourceType || 'unknown',
     });
   },
   key: (req, file, cb) => {
-    const subjectId    = (req.body.subjectId    || 'general').toUpperCase();
+    const subjectCode = (req.body.subjectCode || 'general').toUpperCase();
     const resourceType = (req.body.resourceType || 'misc');
-    const timestamp    = Date.now();
+    const timestamp = Date.now();
     // Sanitize original filename (remove spaces / special chars)
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const s3Key = `resources/${subjectId}/${resourceType}/${timestamp}-${safeName}`;
+    const s3Key = `resources/${subjectCode}/${resourceType}/${timestamp}-${safeName}`;
     cb(null, s3Key);
   },
 });

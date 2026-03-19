@@ -8,7 +8,7 @@ const resourceSchema = new mongoose.Schema(
       unique: true,
       default: () => uuidv4(),
     },
-    subjectId: {
+    subjectCode: {
       type: String,
       required: true,
       ref: 'Subject',
@@ -60,7 +60,7 @@ const resourceSchema = new mongoose.Schema(
 );
 
 // Index for common queries
-resourceSchema.index({ subjectId: 1, resourceType: 1 });
+resourceSchema.index({ subjectCode: 1, resourceType: 1 });
 resourceSchema.index({ resourceId: 1 });
 
 module.exports = mongoose.model('Resource', resourceSchema);

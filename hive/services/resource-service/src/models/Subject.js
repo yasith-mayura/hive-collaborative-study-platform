@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const subjectSchema = new mongoose.Schema(
   {
-    subjectId: {
+    subjectCode: {
       type: String,
       required: true,
       unique: true,
@@ -10,11 +10,6 @@ const subjectSchema = new mongoose.Schema(
       uppercase: true,  // always stored as "SE3010"
     },
     subjectName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    subjectCode: {
       type: String,
       required: true,
       trim: true,
