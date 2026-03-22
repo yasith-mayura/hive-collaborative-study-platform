@@ -21,7 +21,7 @@ const navItems = [
     icon: "folder-open",
     name: "Resources",
     path: "/resources",
-    allowed: ["student", "admin", "superadmin"],
+    allowed: ["student"],
   },
   {
     icon: "sparkles",
@@ -78,6 +78,12 @@ const navItems = [
     path: "/admin/session",
     allowed: ["admin"],
   },
+  {
+    icon: "folder-open",
+    name: "Resources",
+    path: "/resources",
+    allowed: ["admin"],
+  },
   // Superadmin specific items
   {
     icon: "home",
@@ -101,6 +107,12 @@ const navItems = [
     icon: "users",
     name: "Groups",
     path: "/superadmin/groups",
+    allowed: ["superadmin"],
+  },
+  {
+    icon: "folder-open",
+    name: "Resources",
+    path: "/resources",
     allowed: ["superadmin"],
   },
 ];

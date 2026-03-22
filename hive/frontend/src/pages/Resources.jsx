@@ -7,6 +7,7 @@ import Modal from "@/components/ui/Modal";
 import { toast } from "react-toastify";
 import { getSubjectResources, uploadResource } from "@/services/api";
 import ResourceCard from "../components/ui/ResourceCard";
+import SubjectAIChat from "../components/SubjectAIChat";
 
 export default function Resources() {
   const { subjectId } = useParams();
@@ -14,7 +15,22 @@ export default function Resources() {
   const { role, viewMode } = useAuth();
 
   const [activeTab, setActiveTab] = useState("papers");
-  const [dbResources, setDbResources] = useState({ past_papers: [], notes: [] });
+  const [dbResources, setDbResources] = useState({
+    past_papers: [
+      { resourceId: "d1", title: "2023 - 2024 Final Exam Paper", s3Url: "#" },
+      { resourceId: "d2", title: "2022 - 2023 Mid Semester Paper", s3Url: "#" },
+      { resourceId: "d3", title: "2021 - 2022 Final Exam Paper", s3Url: "#" },
+      { resourceId: "d4", title: "2020 - 2021 Final Exam Paper", s3Url: "#" },
+    ],
+    notes: [
+      { resourceId: "n1", title: "Week 1 - Introduction Notes", s3Url: "#" },
+      { resourceId: "n2", title: "Week 2 - Data Types & Variables", s3Url: "#" },
+      { resourceId: "n3", title: "Week 3 - Control Structures", s3Url: "#" },
+      { resourceId: "n4", title: "Week 4 - Functions & Modules", s3Url: "#" },
+      { resourceId: "n5", title: "Week 5 - Object Oriented Programming", s3Url: "#" },
+      { resourceId: "n6", title: "Week 6 - File Handling", s3Url: "#" },
+    ],
+  });
   const [subjectDetails, setSubjectDetails] = useState(null);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -171,14 +187,29 @@ export default function Resources() {
         </div>
       )}
 
-      {/* Shared Notes List */}
+      {/* Shared Notes */}
       {activeTab === "notes" && (
-        <div className="p-8 flex flex-wrap gap-4 items-center justify-start">
+        <div className="p-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {dbResources.notes.length === 0 ? (
-            <p className="text-gray-500 italic w-full">No notes uploaded yet.</p>
+            <p className="text-gray-500 italic col-span-full">No notes uploaded yet.</p>
           ) : (
             dbResources.notes.map((note, index) => (
-               <ResourceCard key={note.resourceId || index} item={{ title: note.title, s3Url: note.s3Url }} />
+              <a
+                key={note.resourceId || index}
+                href={note.s3Url || "#"}
+                onClick={(e) => note.s3Url && handleDownload(note.s3Url, e)}
+                className="flex flex-col bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-shadow h-48 group"
+              >
+                {/* Top Half - Dark background */}
+                <div className="flex-grow bg-[#393E41] flex items-center justify-center">
+                  <FaRegFileAlt className="text-gray-400 text-4xl group-hover:text-primary-400 transition-colors" />
+                </div>
+                {/* Bottom Half - Title & Download */}
+                <div className="h-12 bg-white flex justify-between items-center px-4 border-t border-gray-200">
+                  <span className="text-sm font-medium text-gray-800 truncate pr-2">{note.title}</span>
+                  <IoMdDownload className="text-gray-400 group-hover:text-primary-600 transition-colors flex-shrink-0" size={18} />
+                </div>
+              </a>
             ))
           )}
         </div>
@@ -231,6 +262,9 @@ export default function Resources() {
           </div>
         </form>
       </Modal>
+
+      {/* Floating AI Chat Bot */}
+      <SubjectAIChat subjectName={subjectDetails ? subjectDetails.subjectName : "this subject"} />
 
     </div>
   );
