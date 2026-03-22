@@ -11,12 +11,14 @@ export {
   deleteUser,
   updateMyProfile,
   updateUser,
-  
+
   createAdmin,
   getAllAdmins,
   promoteUserToAdmin,
   deleteAdmin,
   updateAdmin,
+
+  getBatchChatHistory,
 
   getAllSessions,
   getSessionById,
@@ -26,5 +28,5 @@ export {
   createSession,
   updateSession,
   deleteSession,
-  
+
 } from "./api";
