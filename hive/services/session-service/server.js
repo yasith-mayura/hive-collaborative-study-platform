@@ -19,6 +19,7 @@ app.get('/', (req, res) => res.json({ status: 'ok', service: 'session-service' }
 app.get('/health', (req, res) => res.json({ status: 'OK', service: 'session-service' }));
 
 app.use('/api/studysession', studySessionRoutes);
+app.use('/api/sessions', studySessionRoutes);
 
 
 app.listen(PORT, () => {
