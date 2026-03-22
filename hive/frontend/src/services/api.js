@@ -217,15 +217,7 @@ export const updateAdmin = async (
 
 //--------------Chat------------------
 
-export const getBatchChatHistory = async (batch) => {
-  const response = await instance.chatService.get(
-    `/api/chat/history/${encodeURIComponent(batch)}`,
-    {
-      headers: instance.defaultHeaders(),
-    }
-  );
-  return response.data;
-};
+
 
 
 
@@ -328,4 +320,9 @@ export const deleteSession = async (id) => {
   return response.data;
 };
 
+
+
+
 //Session Service APIs end
+
+
