@@ -103,6 +103,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshAuthUser = async () => {
+    if (!auth.currentUser) return null;
+
+    await auth.currentUser.reload();
+    setUser(auth.currentUser);
+
+    return auth.currentUser;
+  };
+
   const value = useMemo(
     () => ({
       user,
@@ -112,6 +121,7 @@ export const AuthProvider = ({ children }) => {
       signup,
       login,
       logout,
+      refreshAuthUser,
        token: localStorage.getItem(TOKEN_KEY),
     }),
     [user, role, loading]
