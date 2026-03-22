@@ -1,35 +1,47 @@
-const admin = require('firebase-admin');
+const admin = require('../config/firebaseAdmin');
 
-// Initialize Firebase Admin if not already initialized (expects env vars)
-// NOTE: In production, use service account JSON or environment variables securely.
-if (!admin.apps.length) {
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY
-    ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    : undefined;
+const extractBearerToken = (authHeader) => {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  return authHeader.split('Bearer ')[1].trim();
+};
 
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: privateKey,
-    }),
-  });
-}
-
-const authMiddleware = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'No token provided' });
+const verifyFirebaseToken = async (idToken) => {
+  if (!idToken) {
+    const err = new Error('No token provided');
+    err.statusCode = 401;
+    throw err;
   }
-  const idToken = authHeader.split('Bearer ')[1];
+
   try {
-    const decoded = await admin.auth().verifyIdToken(idToken);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    console.error('Firebase token verification failed', err);
-    return res.status(401).json({ message: 'Unauthorized' });
+    return await admin.auth().verifyIdToken(idToken);
+  } catch (error) {
+    const err = new Error('Unauthorized');
+    err.statusCode = 401;
+    throw err;
   }
 };
 
+const authMiddleware = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const idToken = extractBearerToken(authHeader);
+    const decoded = await verifyFirebaseToken(idToken);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    const statusCode = err.statusCode || 401;
+    return res.status(statusCode).json({ message: err.message || 'Unauthorized' });
+  }
+};
+
+const verifySocketToken = async (socket) => {
+  const tokenFromAuth = socket.handshake?.auth?.token;
+  const tokenFromHeader = extractBearerToken(socket.handshake?.headers?.authorization);
+  const idToken = tokenFromAuth || tokenFromHeader;
+
+  return verifyFirebaseToken(idToken);
+};
+
 module.exports = authMiddleware;
+module.exports.verifyFirebaseToken = verifyFirebaseToken;
+module.exports.verifySocketToken = verifySocketToken;
