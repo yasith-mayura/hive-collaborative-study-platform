@@ -1,271 +1,499 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { FaRegFileAlt, FaArrowLeft } from "react-icons/fa";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { FaArrowLeft, FaRegFileAlt } from "react-icons/fa";
 import { IoMdDownload } from "react-icons/io";
-import { useAuth } from "@/context/AuthContext";
 import Modal from "@/components/ui/Modal";
+import { useAuth } from "@/context/AuthContext";
 import { toast } from "react-toastify";
-import { getSubjectResources, uploadResource } from "@/services/api";
-import ResourceCard from "../components/ui/ResourceCard";
+import {
+  deleteResource,
+  getDownloadUrl,
+  getResourcesBySubject,
+  uploadResource,
+} from "@/services/resourceService";
 import SubjectAIChat from "../components/SubjectAIChat";
+
+const resourceTypeLabels = {
+  past_paper: "Past Papers",
+  resource_book: "Resource Books",
+  note: "Notes",
+};
+
+const getErrorMessage = (error, fallbackMessage) => {
+  const status = error?.response?.status;
+
+  if (status === 401) return "Session expired. Please login again.";
+  if (status === 403) return "You do not have permission to perform this action.";
+  if (status === 404) return "Resource or subject was not found.";
+  if (status === 413) return "File too large. Maximum size is 50MB.";
+  if (status === 500) return "Server error. Please try again.";
+
+  return error?.response?.data?.message || fallbackMessage;
+};
+
+const formatDate = (dateValue) => {
+  if (!dateValue) return "-";
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString();
+};
+
+const formatFileSize = (sizeInBytes) => {
+  const size = Number(sizeInBytes || 0);
+  if (!size) return "-";
+  const mb = size / (1024 * 1024);
+  if (mb >= 1) return `${mb.toFixed(2)} MB`;
+  const kb = size / 1024;
+  return `${kb.toFixed(2)} KB`;
+};
 
 export default function Resources() {
   const { subjectId } = useParams();
   const navigate = useNavigate();
-  const { role, viewMode } = useAuth();
+  const { role } = useAuth();
 
-  const [activeTab, setActiveTab] = useState("papers");
-  const [dbResources, setDbResources] = useState({
-    past_papers: [
-      { resourceId: "d1", title: "2023 - 2024 Final Exam Paper", s3Url: "#" },
-      { resourceId: "d2", title: "2022 - 2023 Mid Semester Paper", s3Url: "#" },
-      { resourceId: "d3", title: "2021 - 2022 Final Exam Paper", s3Url: "#" },
-      { resourceId: "d4", title: "2020 - 2021 Final Exam Paper", s3Url: "#" },
-    ],
-    notes: [
-      { resourceId: "n1", title: "Week 1 - Introduction Notes", s3Url: "#" },
-      { resourceId: "n2", title: "Week 2 - Data Types & Variables", s3Url: "#" },
-      { resourceId: "n3", title: "Week 3 - Control Structures", s3Url: "#" },
-      { resourceId: "n4", title: "Week 4 - Functions & Modules", s3Url: "#" },
-      { resourceId: "n5", title: "Week 5 - Object Oriented Programming", s3Url: "#" },
-      { resourceId: "n6", title: "Week 6 - File Handling", s3Url: "#" },
-    ],
+  const canManageResources = role === "admin" || role === "superadmin";
+
+  const [loading, setLoading] = useState(true);
+  const [subject, setSubject] = useState(null);
+  const [resources, setResources] = useState({
+    past_papers: [],
+    resource_books: [],
+    notes: [],
   });
-  const [subjectDetails, setSubjectDetails] = useState(null);
-  
-  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedResource, setSelectedResource] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [downloadingResourceId, setDownloadingResourceId] = useState("");
+
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [resourceType, setResourceType] = useState("past_paper");
   const [file, setFile] = useState(null);
 
-  const loadResources = () => {
-    getSubjectResources(subjectId)
-      .then((res) => {
-        if (res.subject) setSubjectDetails(res.subject);
-        if (res.resources) {
-          setDbResources({
-            past_papers: res.resources.past_papers || [],
-            notes: res.resources.notes || [],
-          });
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load resources:", err);
+  const subjectCode = useMemo(() => (subjectId || "").toUpperCase(), [subjectId]);
+
+  const loadResources = async () => {
+    try {
+      setLoading(true);
+      const response = await getResourcesBySubject(subjectCode);
+      setSubject(response?.subject || null);
+      setResources({
+        past_papers: response?.resources?.past_papers || [],
+        resource_books: response?.resources?.resource_books || [],
+        notes: response?.resources?.notes || [],
       });
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to load resources"));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    loadResources();
-  }, [subjectId]);
-
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+    if (subjectCode) {
+      loadResources();
     }
+  }, [subjectCode]);
+
+  const resetUploadForm = () => {
+    setTitle("");
+    setDescription("");
+    setResourceType("past_paper");
+    setFile(null);
+    setUploadProgress(0);
   };
 
-  const handleUpload = async (e) => {
-    e.preventDefault();
-    if (!file) {
-      toast.error("Please select a file to upload");
+  const handleFileChange = (event) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) return;
+
+    const isPdf = selectedFile.type === "application/pdf" || selectedFile.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      toast.error("Only PDF files are allowed.");
+      event.target.value = "";
       return;
     }
-    
-    // Create FormData for multipart/form-data
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("subjectId", subjectId);
-    formData.append("resourceType", resourceType);
-    formData.append("title", title);
+
+    if (selectedFile.size > 50 * 1024 * 1024) {
+      toast.error("File too large. Maximum size is 50MB.");
+      event.target.value = "";
+      return;
+    }
+
+    setFile(selectedFile);
+  };
+
+  const handleUpload = async (event) => {
+    event.preventDefault();
+
+    if (!file) {
+      toast.error("Please select a PDF file to upload.");
+      return;
+    }
 
     try {
-      await uploadResource(formData);
-      toast.success("Resource uploaded successfully!");
-      setIsModalOpen(false);
-      setTitle("");
-      setFile(null);
-      setResourceType("past_paper");
-      loadResources(); // Reload the list
-    } catch (err) {
-      toast.error(err?.response?.data?.message || "Failed to upload resource");
+      setUploading(true);
+      setUploadProgress(0);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("subjectCode", subjectCode);
+      formData.append("resourceType", resourceType);
+      formData.append("title", title.trim());
+      formData.append("description", description.trim());
+
+      const response = await uploadResource(formData, (progressEvent) => {
+        if (!progressEvent.total) return;
+        const percentage = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        setUploadProgress(percentage);
+      });
+
+      toast.success("Resource uploaded successfully");
+      if (!response?.resource?.isEmbedded) {
+        toast.success("AI is processing this document...");
+      }
+
+      setShowUploadModal(false);
+      resetUploadForm();
+      loadResources();
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to upload resource"));
+    } finally {
+      setUploading(false);
     }
   };
 
-  const handleDownload = (s3Url, e) => {
-    e.preventDefault();
-    window.open(s3Url, "_blank");
+  const handleDownload = async (resourceId) => {
+    if (!resourceId) {
+      toast.error("Invalid resource. Please refresh and try again.");
+      return;
+    }
+
+    try {
+      setDownloadingResourceId(resourceId);
+      const response = await getDownloadUrl(resourceId);
+      if (response?.presignedUrl) {
+        // Use an anchor click to avoid popup blockers on async window.open calls.
+        const downloadAnchor = document.createElement("a");
+        downloadAnchor.href = response.presignedUrl;
+        downloadAnchor.target = "_self";
+        downloadAnchor.rel = "noopener noreferrer";
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        document.body.removeChild(downloadAnchor);
+
+        setResources((previous) => {
+          const incrementCount = (items) =>
+            items.map((item) =>
+              item.resourceId === resourceId
+                ? { ...item, downloadCount: Number(item.downloadCount || 0) + 1 }
+                : item
+            );
+
+          return {
+            past_papers: incrementCount(previous.past_papers),
+            resource_books: incrementCount(previous.resource_books),
+            notes: incrementCount(previous.notes),
+          };
+        });
+      } else {
+        toast.error("Unable to generate download link.");
+      }
+
+      // Backend increments count non-blocking. Refresh shortly to sync persisted state.
+      setTimeout(() => {
+        loadResources();
+      }, 800);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to download resource"));
+    } finally {
+      setDownloadingResourceId("");
+    }
   };
+
+  const openDeleteModal = (resource) => {
+    setSelectedResource(resource);
+    setShowDeleteModal(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedResource?.resourceId) return;
+
+    try {
+      setActionLoading(true);
+      await deleteResource(selectedResource.resourceId);
+      setResources((previous) => ({
+        past_papers: previous.past_papers.filter((item) => item.resourceId !== selectedResource.resourceId),
+        resource_books: previous.resource_books.filter((item) => item.resourceId !== selectedResource.resourceId),
+        notes: previous.notes.filter((item) => item.resourceId !== selectedResource.resourceId),
+      }));
+      toast.success("Resource deleted successfully");
+      setShowDeleteModal(false);
+      setSelectedResource(null);
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Failed to delete resource"));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const renderResourceSection = (typeKey, list) => {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">{resourceTypeLabels[typeKey]}</h3>
+
+        {list.length === 0 ? (
+          <p className="text-gray-500 italic">No resources available in this section.</p>
+        ) : (
+          <div className="space-y-3">
+            {list.map((resource) => (
+              <div
+                key={resource.resourceId}
+                className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FaRegFileAlt className="text-primary-600" />
+                      <h4 className="text-base font-semibold text-gray-800 truncate">
+                        {resource.title || resource.fileName || "Untitled Resource"}
+                      </h4>
+                      {resource.isEmbedded ? (
+                        <span className="text-xs bg-success-500/10 text-success-500 px-2 py-1 rounded-full font-medium">
+                          AI Ready
+                        </span>
+                      ) : (
+                        <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full font-medium">
+                          Processing...
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-sm text-gray-600 mb-3">
+                      {resource.description || "No description available."}
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm text-gray-600">
+                      <p>File: {resource.fileName || "-"}</p>
+                      <p>Uploaded: {formatDate(resource.createdAt)}</p>
+                      <p>Uploaded By: {resource.uploadedBy || "-"}</p>
+                      {canManageResources && <p>Downloads: {resource.downloadCount || 0}</p>}
+                      <p>Size: {formatFileSize(resource.fileSize)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(resource.resourceId)}
+                      disabled={downloadingResourceId === resource.resourceId}
+                      className="bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-300 rounded-md disabled:opacity-50"
+                    >
+                      {downloadingResourceId === resource.resourceId ? "Loading..." : "Download"}
+                    </button>
+
+                    {canManageResources && (
+                      <button
+                        type="button"
+                        onClick={() => openDeleteModal(resource)}
+                        className="bg-danger-500 text-white px-3 py-2 text-sm font-medium hover:opacity-90 rounded-md"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-48">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white rounded-xl shadow-sm border border-gray-100 pb-10">
-      {/* Header / Tabs */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-2">
+      <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate(-1)} 
-            className="mb-2 p-2 hover:bg-gray-100 rounded-full transition"
+            onClick={() => navigate("/resources")}
+            className="p-2 hover:bg-gray-100 rounded-full transition"
             aria-label="Go back"
           >
             <FaArrowLeft size={18} className="text-gray-600" />
           </button>
-          
-          <div className="flex gap-6">
-            <button
-              onClick={() => setActiveTab("papers")}
-              className={`pb-2 font-medium transition-colors ${
-                activeTab === "papers"
-                  ? "border-b-2 border-primary-500 text-gray-900 font-semibold"
-                  : "border-b-2 border-transparent text-gray-500 hover:border-primary-300"
-              }`}
-            >
-              Past Papers
-            </button>
-            <button
-              onClick={() => setActiveTab("notes")}
-              className={`pb-2 font-medium transition-colors ${
-                activeTab === "notes"
-                  ? "border-b-2 border-primary-500 text-gray-900 font-semibold"
-                  : "border-b-2 border-transparent text-gray-500 hover:border-primary-300"
-              }`}
-            >
-              Shared Notes
-            </button>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-800">
+              {subject ? `${subject.subjectCode} - ${subject.subjectName}` : subjectCode}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Level {subject?.level || "-"} | Semester {subject?.semester || "-"}
+            </p>
           </div>
         </div>
 
-        {/* Admin / Superadmin Upload Buttons — contextual per tab */}
-        {(viewMode === "superadmin" || viewMode === "admin") && activeTab === "papers" && (
+        {canManageResources && (
           <button
-            onClick={() => { setResourceType("past_paper"); setIsModalOpen(true); }}
-            className="mb-2 bg-primary-900 text-white px-4 py-2 rounded-md hover:bg-slate-800 transition shadow-sm text-sm font-medium"
+            onClick={() => setShowUploadModal(true)}
+            className="bg-primary-900 text-white px-4 py-2 rounded-md hover:bg-slate-800 transition shadow-sm text-sm font-medium"
           >
-            + Add Past Paper
-          </button>
-        )}
-        {(viewMode === "superadmin" || viewMode === "admin") && activeTab === "notes" && (
-          <button
-            onClick={() => { setResourceType("note"); setIsModalOpen(true); }}
-            className="mb-2 bg-primary-900 text-white px-4 py-2 rounded-md hover:bg-slate-800 transition shadow-sm text-sm font-medium"
-          >
-            + Add Note
+            + Upload Resource
           </button>
         )}
       </div>
 
-      <div className="px-8 pt-4 pb-2">
-         <h2 className="text-xl font-semibold text-gray-800">
-           {subjectDetails ? `${subjectDetails.subjectCode} - ${subjectDetails.subjectName}` : `Subject ID: ${subjectId}`}
-         </h2>
+      <div className="px-6 pt-4">
+        <p className="text-sm text-gray-600">{subject?.description || "No subject description provided."}</p>
       </div>
 
-      {/* Past Papers List */}
-      {activeTab === "papers" && (
-        <div className="p-6 space-y-4">
-          {dbResources.past_papers.length === 0 ? (
-            <p className="text-gray-500 italic">No past papers uploaded yet.</p>
-          ) : (
-            dbResources.past_papers.map((paper, index) => (
-              <div
-                key={paper.resourceId || index}
-                className="flex justify-between items-center border-b border-gray-200 pb-3 hover:bg-gray-50 p-2 rounded transition"
-              >
-                <div className="flex items-center gap-3">
-                  <FaRegFileAlt className="text-blue-500" />
-                  <span className="font-medium text-gray-700">{paper.title}</span>
-                </div>
-                <a 
-                  href={paper.s3Url || "#"} 
-                  onClick={(e) => paper.s3Url && handleDownload(paper.s3Url, e)}
-                  className="text-gray-500 hover:text-primary-600 transition p-2"
-                  title="Download File"
-                >
-                  <IoMdDownload size={20} />
-                </a>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+      <div className="p-6 space-y-6">
+        {renderResourceSection("past_paper", resources.past_papers)}
+        {renderResourceSection("resource_book", resources.resource_books)}
+        {renderResourceSection("note", resources.notes)}
+      </div>
 
-      {/* Shared Notes */}
-      {activeTab === "notes" && (
-        <div className="p-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {dbResources.notes.length === 0 ? (
-            <p className="text-gray-500 italic col-span-full">No notes uploaded yet.</p>
-          ) : (
-            dbResources.notes.map((note, index) => (
-              <a
-                key={note.resourceId || index}
-                href={note.s3Url || "#"}
-                onClick={(e) => note.s3Url && handleDownload(note.s3Url, e)}
-                className="flex flex-col bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200 hover:shadow-md transition-shadow h-48 group"
-              >
-                {/* Top Half - Dark background */}
-                <div className="flex-grow bg-[#393E41] flex items-center justify-center">
-                  <FaRegFileAlt className="text-gray-400 text-4xl group-hover:text-primary-400 transition-colors" />
-                </div>
-                {/* Bottom Half - Title & Download */}
-                <div className="h-12 bg-white flex justify-between items-center px-4 border-t border-gray-200">
-                  <span className="text-sm font-medium text-gray-800 truncate pr-2">{note.title}</span>
-                  <IoMdDownload className="text-gray-400 group-hover:text-primary-600 transition-colors flex-shrink-0" size={18} />
-                </div>
-              </a>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Upload Resource Modal for Superadmin */}
       <Modal
-        title={resourceType === "past_paper" ? "Upload Past Paper" : "Upload Note"}
-        activeModal={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        title="Upload Resource"
+        activeModal={showUploadModal}
+        onClose={() => {
+          if (!uploading) {
+            setShowUploadModal(false);
+            resetUploadForm();
+          }
+        }}
       >
         <form onSubmit={handleUpload} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Resource Title</label>
+            <label className="block text-sm font-medium text-gray-700">Title</label>
             <input
               type="text"
               required
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"
               placeholder="e.g. 2024 Final Exam Paper"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
             />
           </div>
 
           <div>
-             <label className="block text-sm font-medium text-gray-700">PDF File (Max 50MB)</label>
-             <input
-               type="file"
-               accept=".pdf"
-               required
-               onChange={handleFileChange}
-               className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
-             />
+            <label className="block text-sm font-medium text-gray-700">Description</label>
+            <textarea
+              rows={3}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"
+              placeholder="Add a short description"
+            />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Resource Type</label>
+            <select
+              value={resourceType}
+              onChange={(event) => setResourceType(event.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"
+            >
+              <option value="past_paper">Past Paper</option>
+              <option value="resource_book">Resource Book</option>
+              <option value="note">Note</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">PDF File (Max 50MB)</label>
+            <input
+              type="file"
+              accept=".pdf"
+              required
+              onChange={handleFileChange}
+              className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100"
+            />
+          </div>
+
+          {uploading && (
+            <div>
+              <p className="text-sm text-gray-600 mb-2">Uploading... {uploadProgress}%</p>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-primary-500 h-2 rounded-full transition-all"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end pt-4 border-t mt-6">
             <button
               type="button"
-              onClick={() => setIsModalOpen(false)}
-              className="mr-3 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-300 rounded-md"
+              disabled={uploading}
+              onClick={() => {
+                setShowUploadModal(false);
+                resetUploadForm();
+              }}
+              className="mr-3 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-300 rounded-md disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="bg-primary-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 rounded-md"
+              disabled={uploading}
+              className="bg-primary-900 text-white px-4 py-2 text-sm font-medium hover:bg-slate-800 rounded-md disabled:opacity-50"
             >
-              Upload
+              {uploading ? "Uploading..." : "Upload"}
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* Floating AI Chat Bot */}
-      <SubjectAIChat subjectName={subjectDetails ? subjectDetails.subjectName : "this subject"} />
+      <Modal
+        title="Delete Resource"
+        activeModal={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setSelectedResource(null);
+        }}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700">
+            Are you sure you want to delete <span className="font-semibold">{selectedResource?.title || selectedResource?.fileName}</span>?
+          </p>
+          <div className="flex justify-end pt-4 border-t mt-6">
+            <button
+              type="button"
+              onClick={() => {
+                setShowDeleteModal(false);
+                setSelectedResource(null);
+              }}
+              className="mr-3 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-300 rounded-md"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={actionLoading}
+              onClick={handleDelete}
+              className="bg-danger-500 text-white px-4 py-2 text-sm font-medium hover:opacity-90 rounded-md disabled:opacity-50"
+            >
+              {actionLoading ? "Deleting..." : "Delete Resource"}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
+      <SubjectAIChat subjectName={subject?.subjectName || "this subject"} />
     </div>
   );
 }
