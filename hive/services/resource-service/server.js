@@ -66,13 +66,7 @@ app.use((req, res) => {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log('');
-  console.log('  ╔═════════════════════════════════════════════════════╗');
-  console.log('  ║   📚 HIVE Resource Service running on port ' + PORT + '    ║');
-  console.log('  ╚═════════════════════════════════════════════════════╝');
-  console.log('');
   console.log('  S3 Bucket : ' + (process.env.S3_BUCKET_NAME || 'hive-study-resources'));
   console.log('  RAG URL   : ' + (process.env.RAG_SERVICE_URL || 'http://localhost:8000'));
   console.log('  MongoDB   : ' + (process.env.MONGO_URI || 'mongodb://localhost:27017/hive'));
-  console.log('');
 });
