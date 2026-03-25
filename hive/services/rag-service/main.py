@@ -1,23 +1,6 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import os
+from app.main import app
 
-app = FastAPI()
+if __name__ == "__main__":
+    import uvicorn
 
-class RagQuery(BaseModel):
-    query: str
-
-@app.get("/")
-def read_root():
-    return {"status": "ok", "service": "rag-service"}
-
-@app.get("/health")
-def health_check():
-    return {"status": "OK", "service": "rag-service"}
-
-@app.post("/rag/query")
-def rag_query(payload: RagQuery):
-    # Placeholder: integrate LangChain / OpenAI / Pinecone here
-    q = payload.query
-    # Return a mock response
-    return {"query": q, "answer": "This is a placeholder response from RAG service."}
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
