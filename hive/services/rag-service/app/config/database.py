@@ -42,6 +42,7 @@ def get_db_connection():
         dbname=settings.pgvector_database,
         user=settings.pgvector_user,
         password=settings.pgvector_password,
+        connect_timeout=5,
     )
     register_vector(conn)
     return conn
