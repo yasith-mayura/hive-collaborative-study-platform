@@ -30,13 +30,15 @@ class QueryResponse(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    resourceId: str
-    subjectCode: str
-    subjectName: str
-    s3Url: str
-    fileName: str
-    resourceType: str
-    uploadedBy: str
+    model_config = ConfigDict(populate_by_name=True)
+
+    resourceId: str = Field(validation_alias=AliasChoices("resourceId", "resource_id"))
+    subjectCode: str = Field(validation_alias=AliasChoices("subjectCode", "subject_id", "subjectId"))
+    subjectName: str = Field(default="Unknown Subject", validation_alias=AliasChoices("subjectName", "subject_name"))
+    s3Url: str = Field(validation_alias=AliasChoices("s3Url", "s3_url", "s3URL"))
+    fileName: str = Field(default="document.pdf", validation_alias=AliasChoices("fileName", "file_name"))
+    resourceType: str = Field(default="note", validation_alias=AliasChoices("resourceType", "resource_type"))
+    uploadedBy: str = Field(default="system", validation_alias=AliasChoices("uploadedBy", "uploaded_by"))
 
 
 class IngestResponse(BaseModel):
