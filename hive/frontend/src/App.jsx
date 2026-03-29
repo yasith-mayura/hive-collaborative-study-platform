@@ -26,6 +26,7 @@ import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
 import UserManagementSuperAdmin from "./pages/superadmin/UserManagementSuperAdmin";
 import AdminManagement from "./pages/superadmin/AdminManagement";
 import GroupManagementSuperAdmin from "./pages/superadmin/GroupsManagementSuperAdmin";
+import BatchDetails from "./pages/superadmin/BatchDetails";
 
 import AppLayout from "./layout/appLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -69,6 +70,7 @@ export default function App() {
             <Route path="superadmin/users" element={<UserManagementSuperAdmin />} />
             <Route path="superadmin/admins" element={<AdminManagement />} />
             <Route path="superadmin/groups" element={<GroupManagementSuperAdmin />} />
+            <Route path="superadmin/groups/:batchYear" element={<BatchDetails />} />
           </Route>
         </Route>
       </Routes>

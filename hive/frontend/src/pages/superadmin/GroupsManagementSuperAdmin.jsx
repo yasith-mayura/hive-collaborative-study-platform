@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { getAllUsers } from "@/services";
 import Icon from "@/components/ui/Icon";
 
@@ -14,6 +15,7 @@ const BATCH_CARD_COLORS = [
 const GroupsManagementSuperAdmin = () => {
   const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadBatches = async () => {
@@ -103,8 +105,9 @@ const GroupsManagementSuperAdmin = () => {
             return (
               <div
                 key={batch.year}
-                className="bg-white rounded-xl border shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md"
+                className="bg-white rounded-xl border shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md cursor-pointer"
                 style={{ borderColor: color.border }}
+                onClick={() => navigate(`/superadmin/groups/${batch.year}`)}
               >
                 <div
                   className="p-5"
