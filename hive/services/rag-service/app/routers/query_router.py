@@ -40,6 +40,9 @@ def query_subject_assistant(request: QueryRequest):
         if "rate_limited" in error_msg or "quota" in error_msg or "429" in error_msg:
             logger.warning("Query rate limited: %s", exc)
             raise HTTPException(status_code=429, detail="AI quota exceeded. Please wait a minute and try again.") from exc
+        if "service_unavailable" in error_msg or "unavailable" in error_msg or "failed to connect" in error_msg:
+            logger.warning("Query service unavailable: %s", exc)
+            raise HTTPException(status_code=503, detail="Cannot reach AI service. Please check your internet connection and try again.") from exc
         logger.exception("Query failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

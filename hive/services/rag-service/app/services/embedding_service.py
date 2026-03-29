@@ -44,6 +44,18 @@ class EmbeddingService:
         return "429" in error_text or "resource_exhausted" in error_text or "quota" in error_text
 
     @staticmethod
+    def _is_transient_error(exc: Exception) -> bool:
+        error_text = str(exc).lower()
+        return any(m in error_text for m in [
+            "503", "unavailable", "socket closed", "connection reset",
+            "failed to connect", "timeout", "deadline exceeded",
+        ])
+
+    @staticmethod
+    def _is_retryable_error(exc: Exception) -> bool:
+        return EmbeddingService._is_rate_limit_error(exc) or EmbeddingService._is_transient_error(exc)
+
+    @staticmethod
     def _extract_retry_delay(exc: Exception) -> float:
         match = re.search(r"retry in ([\d.]+)s", str(exc))
         if match:
@@ -121,12 +133,12 @@ class EmbeddingService:
                     if first_failure is None:
                         first_failure = exc
 
-                    if self._is_rate_limit_error(exc):
+                    if self._is_retryable_error(exc):
                         if retry < max_retries:
-                            delay = self._extract_retry_delay(exc)
+                            delay = self._extract_retry_delay(exc) if self._is_rate_limit_error(exc) else min(10.0 * (retry + 1), 30.0)
                             logger.warning(
-                                "Rate limited on %s (attempt %s/%s), waiting %.1fs...",
-                                candidate, retry + 1, max_retries, delay,
+                                "Retryable error on %s (attempt %s/%s), waiting %.1fs: %s",
+                                candidate, retry + 1, max_retries, delay, type(exc).__name__,
                             )
                             time.sleep(delay)
                             continue

@@ -16,6 +16,18 @@ def _is_rate_limit_error(exc: Exception) -> bool:
     return "429" in error_text or "resource_exhausted" in error_text or "quota" in error_text
 
 
+def _is_transient_error(exc: Exception) -> bool:
+    error_text = str(exc).lower()
+    return any(m in error_text for m in [
+        "503", "unavailable", "socket closed", "connection reset",
+        "failed to connect", "timeout", "deadline exceeded",
+    ])
+
+
+def _is_retryable_error(exc: Exception) -> bool:
+    return _is_rate_limit_error(exc) or _is_transient_error(exc)
+
+
 def _extract_retry_delay(exc: Exception) -> float:
     match = re.search(r"retry in ([\d.]+)s", str(exc))
     if match:
@@ -79,18 +91,23 @@ class GeminiService:
                 response = self.model.generate_content(prompt)
                 return (response.text or "").strip()
             except Exception as exc:
-                if _is_rate_limit_error(exc):
+                if _is_retryable_error(exc):
                     if attempt < max_retries:
-                        delay = _extract_retry_delay(exc)
+                        delay = _extract_retry_delay(exc) if _is_rate_limit_error(exc) else min(10.0 * (attempt + 1), 30.0)
                         logger.warning(
-                            "Gemini rate limited (attempt %s/%s), waiting %.1fs...",
-                            attempt + 1, max_retries, delay,
+                            "Gemini retryable error (attempt %s/%s), waiting %.1fs: %s",
+                            attempt + 1, max_retries, delay, type(exc).__name__,
                         )
                         time.sleep(delay)
                         continue
-                    logger.error("Gemini API rate limit exhausted after %s retries", max_retries)
+                    if _is_rate_limit_error(exc):
+                        logger.error("Gemini API rate limit exhausted after %s retries", max_retries)
+                        raise RuntimeError(
+                            "rate_limited: Gemini API quota exhausted. Please try again in a minute."
+                        ) from exc
+                    logger.error("Gemini API unavailable after %s retries", max_retries)
                     raise RuntimeError(
-                        "rate_limited: Gemini API quota exhausted. Please try again in a minute."
+                        "service_unavailable: Cannot reach Gemini API. Check your internet connection."
                     ) from exc
                 logger.error("Gemini API error: %s", exc)
                 raise RuntimeError("Failed to generate response from Gemini") from exc
