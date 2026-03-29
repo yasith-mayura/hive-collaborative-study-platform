@@ -152,7 +152,7 @@ function Users() {
                               >
                                 {row.name}
                               </td>
-                              <td className="table-td">{row.email}</td>
+                              <td className="table-td lowercase">{row.email}</td>
                               <td className="table-td">
                                 <span className="inline-block px-2 py-1 text-xs font-semibold text-gray-700 bg-gray-200 rounded-full">
                                   {row.role}

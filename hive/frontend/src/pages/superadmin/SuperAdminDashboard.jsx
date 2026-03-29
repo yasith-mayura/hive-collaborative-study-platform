@@ -80,7 +80,7 @@ export default function SuperAdminDashboard() {
                 u.role === "admin"
                   ? `${u.name} was added as an admin`
                   : `${u.name} registered as a student`,
-              detail: u.studentNumber || u.email,
+              detail: u.studentNumber || u.email?.toLowerCase(),
               time: u.createdAt,
             });
           });

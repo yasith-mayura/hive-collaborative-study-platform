@@ -108,7 +108,7 @@ export default function BatchDetails() {
                             <td className="table-td font-medium text-gray-900">
                               {row.name}
                             </td>
-                            <td className="table-td">{row.email}</td>
+                            <td className="table-td lowercase">{row.email}</td>
                             <td className="table-td">{row.studentNumber}</td>
                             <td className="table-td">
                               <span
