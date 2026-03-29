@@ -196,37 +196,9 @@ const GroupsManagementSuperAdmin = () => {
                       </div>
                     )}
 
-                    {batch.students.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold text-secondary-500 uppercase mb-2">
-                          Students
-                        </p>
-                        {batch.students.map((student) => (
-                          <div
-                            key={student._id || student.studentNumber}
-                            className="flex items-center gap-3 py-2"
-                          >
-                            <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                              <span className="text-xs font-bold text-green-700">
-                                {(student.name || "?")[0].toUpperCase()}
-                              </span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-secondary-800 truncate">
-                                {student.name}
-                              </p>
-                              <p className="text-xs text-secondary-400 truncate">
-                                {student.studentNumber}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {batch.students.length === 0 && batch.admins.length === 0 && (
+                    {batch.admins.length === 0 && (
                       <p className="text-sm text-secondary-400 italic">
-                        No members in this batch.
+                        No admins in this batch.
                       </p>
                     )}
                   </div>
