@@ -24,12 +24,6 @@ const navItems = [
     allowed: ["student"],
   },
   {
-    icon: "sparkles",
-    name: "AI Support",
-    path: "/ai",
-    allowed: ["student"],
-  },
-  {
     icon: "clock",
     name: "Study Session Reminders",
     path: "/session",
