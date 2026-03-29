@@ -15,6 +15,7 @@ export default function NotesPage() {
   const [editText, setEditText] = useState("");
   const [editTopic, setEditTopic] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [showMenuId, setShowMenuId] = useState(null);
   const [text, setText] = useState("");
@@ -73,6 +74,15 @@ export default function NotesPage() {
   const selectNote = (note) => {
     setSelectedNote(note);
     setIsEditMode(false);
+    setIsCreatingNew(false);
+  };
+
+  const startCreateNew = () => {
+    setSelectedNote(null);
+    setIsEditMode(false);
+    setIsCreatingNew(true);
+    setNewTopic("");
+    setText("");
   };
 
   // Start voice recognition
@@ -131,8 +141,10 @@ const startVoice = () => {
       const res = await api.post("/create", payload);
       console.log("Note created successfully:", res.data);
       setNotes([...notes, res.data]);
+      setSelectedNote(res.data);
       setText("");
       setNewTopic("");
+      setIsCreatingNew(false);
     } catch (err) {
       const backendMessage = err.response?.data?.message;
       const status = err.response?.status;
@@ -235,6 +247,13 @@ useEffect(() => {
   onClick={() => setShowSearch(true)}
 />
         </div>
+
+        <button
+          onClick={startCreateNew}
+          className="w-full mb-4 px-3 py-2 rounded bg-primary-500 text-white hover:bg-primary-700 transition"
+        >
+          + Create New Note
+        </button>
 
         <hr className="mb-4" />
 
@@ -400,13 +419,9 @@ useEffect(() => {
             style={{ minHeight: "6rem", maxHeight: "70vh" }}
           />
           </>
-        ) : (
-          <p className="text-gray-500">Select a note to view</p>
-        )}
- 
-        {/* Voice-to-text input */}
-        <div className="mt-4 flex justify-center w-full">
-          <div className="w-full">
+        ) : isCreatingNew ? (
+          <>
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Create New Note</h2>
             <input
               type="text"
               value={newTopic}
@@ -416,49 +431,65 @@ useEffect(() => {
             />
 
             <div className="flex items-center w-full">
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Type or use voice to create a note..."
-              className="w-full pt-2 rounded-4xl border border-gray-400 px-6 bg-transparent overflow-auto"
-              style={{
-                minHeight: "1rem",
-                maxHeight: "100rem",
-                resize: "vertical",
-              }}
-              ref={(el) => {
-                if (el) {
-                  el.style.height = "auto";
-                  el.style.height = `${el.scrollHeight}px`;
-                }
-              }}
-            />
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Type or use voice to create a note..."
+                className="w-full pt-2 rounded-4xl border border-gray-400 px-6 bg-transparent overflow-auto"
+                style={{
+                  minHeight: "8rem",
+                  maxHeight: "100rem",
+                  resize: "vertical",
+                }}
+                ref={(el) => {
+                  if (el) {
+                    el.style.height = "auto";
+                    el.style.height = `${el.scrollHeight}px`;
+                  }
+                }}
+              />
 
-            {isListening ? (
-              <button
-                onClick={stopVoice}
-                className="ml-4 w-12 h-12 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-700 transition"
-              >
-                <AiOutlineClose />
-              </button>
-            ) : text.trim().length > 0 ? (
+              {isListening ? (
+                <button
+                  onClick={stopVoice}
+                  className="ml-4 w-12 h-12 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-700 transition"
+                >
+                  <AiOutlineClose />
+                </button>
+              ) : text.trim().length > 0 ? (
+                <button
+                  onClick={createNote}
+                  className="ml-4 w-12 h-12 flex items-center justify-center rounded-full bg-green-600 hover:bg-green-700 transition"
+                >
+                  <FaPaperPlane className="text-white text-lg" />
+                </button>
+              ) : (
+                <button
+                  onClick={startVoice}
+                  className="ml-4 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-900 transition"
+                >
+                  <RiVoiceprintLine className="text-yellow-400 text-lg" />
+                </button>
+              )}
+            </div>
+
+            <div className="mt-3 flex justify-end">
               <button
                 onClick={createNote}
-                className="ml-4 w-12 h-12 flex items-center justify-center rounded-full bg-green-600 hover:bg-green-700 transition"
+                disabled={!text.trim()}
+                className={`px-4 py-2 rounded font-medium transition ${
+                  text.trim()
+                    ? "bg-primary-500 text-white hover:bg-primary-700"
+                    : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                }`}
               >
-                <FaPaperPlane className="text-white text-lg" />
+                Create Note
               </button>
-            ) : (
-              <button
-                onClick={startVoice}
-                className="ml-4 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-900 transition"
-              >
-                <RiVoiceprintLine className="text-yellow-400 text-lg" />
-              </button>
-            )}
             </div>
-          </div>
-        </div>
+          </>
+        ) : (
+          <p className="text-gray-500">Select a note from My Notes, or click Create New Note.</p>
+        )}
       </div>
     </div>
   );
