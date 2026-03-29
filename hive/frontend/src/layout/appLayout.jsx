@@ -4,11 +4,13 @@ import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
 import AppHeader from "@/components/partials/navbar/NavBar";
 import AppSidebar from "@/components/partials/sidebar/sidebar";
 
+import PomodoroTimer from "@/components/PomodoroTimer";
+
 const LayoutContent = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
 
   return (
-    <div className="min-h-screen xl:flex bg-primary">
+    <div className="min-h-screen xl:flex bg-primary relative">
       <div className="border">
         <AppSidebar />
       </div>
@@ -23,6 +25,7 @@ const LayoutContent = () => {
           <Outlet />
         </div>
       </div>
+      <PomodoroTimer />
     </div>
   );
 };

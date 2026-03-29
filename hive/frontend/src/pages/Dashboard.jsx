@@ -52,8 +52,8 @@ export default function Dashboard() {
         {/* Right: Sidebar widgets */}
         <div className="flex flex-col gap-6">
           {/* Pomodoro Timer */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <PomodoroTimer />
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm min-h-[300px]" id="pomodoro-timer-slot">
+            {/* The global timer will portal here */}
           </div>
 
           {/* Upcoming Tasks */}
