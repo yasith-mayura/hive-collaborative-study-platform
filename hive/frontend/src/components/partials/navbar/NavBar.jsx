@@ -86,14 +86,7 @@ const AppHeader = () => {
               </>
             )}
           </h1>
-          <Link to="/dashboard" className="lg:hidden">
-            <img
-              className=""
-              width={150}
-              src="/logo-dark.png"
-              alt="Logo"
-            />
-          </Link>
+
 
           <button
             onClick={toggleApplicationMenu}
