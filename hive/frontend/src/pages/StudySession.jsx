@@ -139,6 +139,13 @@ const isSameMonth = (dateValue, referenceDate) => {
   );
 };
 
+const isFutureOrToday = (session) => {
+  const date = combineSessionDateAndTime(session);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date >= today;
+};
+
 function SessionToolbar({ label, onNavigate, onView, view }) {
   const viewOptions = ["month", "week", "day", "agenda"];
 
@@ -228,7 +235,7 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
       const month = targetDate.getMonth() + 1;
       const year = targetDate.getFullYear();
       const sessions = await getSessionsByMonth(month, year);
-      setMonthSessions((sessions || []).sort(sortByDateTimeAsc));
+      setMonthSessions((sessions || []).filter(isFutureOrToday).sort(sortByDateTimeAsc));
     } catch (requestError) {
       setError(requestError?.response?.data?.message || "Failed to load calendar sessions.");
     } finally {
@@ -245,8 +252,8 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
         getAllSessions(),
         getCurrentMonthSessions(),
       ]);
-      setAllSessions((all || []).sort(sortByDateTimeAsc));
-      setMonthSessions((currentMonth || []).sort(sortByDateTimeAsc));
+      setAllSessions((all || []).filter(isFutureOrToday).sort(sortByDateTimeAsc));
+      setMonthSessions((currentMonth || []).filter(isFutureOrToday).sort(sortByDateTimeAsc));
     } catch (requestError) {
       setError(requestError?.response?.data?.message || "Failed to load study sessions.");
     } finally {
