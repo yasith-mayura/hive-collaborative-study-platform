@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import Icon from "@/components/ui/Icon";
+import { toast } from "react-toastify";
 
 const PRESETS = {
   focus: { minutes: 25, color: "#FFCC00", glow: "bg-primary-300", label: "Focus" },
@@ -27,7 +28,6 @@ export default function PomodoroTimer() {
   const [isRunning, setIsRunning] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [inputMinutes, setInputMinutes] = useState(String(PRESETS.focus.minutes));
-  const [showBreakNotification, setShowBreakNotification] = useState(false);
   const intervalRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -55,10 +55,16 @@ export default function PomodoroTimer() {
   }, []);
 
   const sendBreakNotification = useCallback((finishedMode) => {
-    setShowBreakNotification(true);
     let title = "🐝 Time's up!";
     let bodyText = finishedMode === "focus" ? "Great work! Time for a break to recharge." : "Break is over. Ready to focus again?";
 
+    // Show globally via toast
+    toast.success(`${title} ${bodyText}`, {
+      position: "top-right",
+      autoClose: 6000,
+    });
+
+    // Show native browser notification
     if ("Notification" in window && Notification.permission === "granted") {
       new Notification(title, { body: bodyText, icon: "/logo-collapsed.png" });
     }
@@ -101,12 +107,10 @@ export default function PomodoroTimer() {
     setDuration(PRESETS[newMode].minutes * 60);
     setTimeLeft(PRESETS[newMode].minutes * 60);
     setInputMinutes(String(PRESETS[newMode].minutes));
-    setShowBreakNotification(false);
     setIsEditing(false);
   };
 
   const handleStart = () => {
-    setShowBreakNotification(false);
     if (timeLeft === 0) setPreset(mode);
     setIsRunning(true);
   };
@@ -149,6 +153,12 @@ export default function PomodoroTimer() {
   const circumference = 2 * Math.PI * radius;
   const progress = duration > 0 ? timeLeft / duration : 0;
   const strokeDashoffset = -circumference * (1 - progress);
+
+  // Hide the floating timer if it's not running, not paused mid-session
+  const isTimerIdle = !isRunning && (timeLeft === 0 || timeLeft === duration);
+  if (isFloating && isTimerIdle) {
+    return null;
+  }
 
   // If we are collapsed (only possible when floating)
   if (isFloating && isCollapsed) {
@@ -194,22 +204,6 @@ export default function PomodoroTimer() {
       )}
 
       <div className="flex flex-col items-center flex-1 justify-center relative">
-        {/* Break Notification Banner */}
-        {showBreakNotification && (
-          <div className="absolute -top-14 w-[90%] px-3 py-2 bg-primary-100 border border-primary-300 rounded-lg flex items-center gap-2 animate-fade-in z-20 shadow-md">
-            <span className="text-lg">🐝</span>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-primary-900">Time's up!</p>
-            </div>
-            <button
-              onClick={() => setShowBreakNotification(false)}
-              className="text-primary-600 hover:text-primary-800 text-lg leading-none"
-            >
-              ×
-            </button>
-          </div>
-        )}
-
         {/* Timer circle */}
         <div
           className={`relative w-[140px] h-[140px] flex items-center justify-center ${
