@@ -67,12 +67,6 @@ const navItems = [
     allowed: ["admin"],
   },
   {
-    icon: "users",
-    name: "Groups",
-    path: "/admin/groups",
-    allowed: ["admin"],
-  },
-  {
     icon: "clock",
     name: "Study Session Reminders",
     path: "/admin/session",
