@@ -22,16 +22,25 @@ const [editPopupText, setEditPopupText] = useState("");
 
   const recognitionRef = useRef(null);
 
-const filteredNotes = notes.filter((note) =>
+  const filteredNotes = notes.filter((note) =>
   (note.title || note.content)
     .toLowerCase()
     .includes(searchText.toLowerCase())
 );
 
-  const api = axios.create({
-    baseURL: "http://localhost:3004/api/notes",
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  // Create axios instance with proper headers
+  const apiRef = useRef(null);
+  
+  useEffect(() => {
+    if (token) {
+      apiRef.current = axios.create({
+        baseURL: "http://localhost:3004/api/notes",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+  }, [token]);
+
+  const api = apiRef.current;
 
   // Fetch notes when user loads
   useEffect(() => {
@@ -39,6 +48,10 @@ const filteredNotes = notes.filter((note) =>
   }, [loading, user]);
 
   const fetchNotes = async () => {
+    if (!api) {
+      console.error("API not initialized");
+      return;
+    }
     try {
       const res = await api.get("/");
       setNotes(res.data);
@@ -47,7 +60,7 @@ const filteredNotes = notes.filter((note) =>
         setEditText(res.data[0].content);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching notes:", err);
     }
   };
 
@@ -100,47 +113,68 @@ const startVoice = () => {
   // Create note from voice/text
   const createNote = async () => {
     if (!text.trim()) return;
+    if (!api) {
+      console.error("API not initialized - token may be missing");
+      alert("Authentication error. Please refresh the page.");
+      return;
+    }
     try {
-      const res = await api.post("/create", { content: text, isVoiceNote: true });
+      console.log("Creating note with:", { content: text, isVoiceNote: false });
+      const res = await api.post("/create", { content: text, isVoiceNote: false });
+      console.log("Note created successfully:", res.data);
       setNotes([...notes, res.data]);
       setText("");
       setShowSend(false);
     } catch (err) {
-      console.error(err);
+      console.error("Error creating note:", err.response?.data || err.message);
+      alert("Failed to create note. Check console for details.");
     }
   };
 
   const updateNote = async (id, newContent) => {
+    if (!api) {
+      console.error("API not initialized");
+      return;
+    }
     try {
       const res = await api.put(`/update/${id}`, { content: newContent });
       setNotes(notes.map((n) => (n._id === id ? res.data : n)));
       setSelectedNote(res.data);
     } catch (err) {
-      console.error(err);
+      console.error("Error updating note:", err);
     }
   };
 
   const deleteNote = async (id) => {
+    if (!api) {
+      console.error("API not initialized");
+      return;
+    }
     try {
       await api.delete(`/delete/${id}`);
       const filtered = notes.filter((n) => n._id !== id);
       setNotes(filtered);
       if (selectedNote?._id === id) setSelectedNote(filtered[0] || null);
     } catch (err) {
-      console.error(err);
+      console.error("Error deleting note:", err);
     }
   };
 
 const renameNote = async (note) => {
   const newTitle = prompt("Enter new title", note.title || "");
   if (!newTitle) return;
+  
+  if (!api) {
+    console.error("API not initialized");
+    return;
+  }
 
   try {
-    const res = await api.put(`/update/${note._id}`, { title: newTitle }); // send only title
-    setNotes(notes.map((n) => (n._id === note._id ? res.data : n))); // update local state
-    if (selectedNote?._id === note._id) setSelectedNote(res.data); // update selected note if needed
+    const res = await api.put(`/update/${note._id}`, { title: newTitle });
+    setNotes(notes.map((n) => (n._id === note._id ? res.data : n)));
+    if (selectedNote?._id === note._id) setSelectedNote(res.data);
   } catch (err) {
-    console.error(err);
+    console.error("Error renaming note:", err);
   }
 };
 useEffect(() => {
@@ -352,7 +386,7 @@ useEffect(() => {
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Voice to text ..."
+              placeholder="Type or use voice to create a note..."
               className="w-full pt-2 rounded-4xl border border-gray-400 px-6 bg-transparent overflow-auto"
               style={{
                 minHeight: "1rem",
@@ -370,23 +404,23 @@ useEffect(() => {
             {isListening ? (
               <button
                 onClick={stopVoice}
-                className="ml-4 w-12 h-12 flex items-center justify-center rounded-full bg-red-600"
+                className="ml-4 w-12 h-12 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-700 transition"
               >
                 <AiOutlineClose />
               </button>
-            ) : !showSend ? (
+            ) : text.trim().length > 0 ? (
               <button
-                onClick={startVoice}
-                className="ml-4 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800"
+                onClick={createNote}
+                className="ml-4 w-12 h-12 flex items-center justify-center rounded-full bg-green-600 hover:bg-green-700 transition"
               >
-                <RiVoiceprintLine className="text-yellow-400 text-lg" />
+                <FaPaperPlane className="text-white text-lg" />
               </button>
             ) : (
               <button
-                onClick={createNote}
-                className="ml-4 w-12 h-12 flex items-center justify-center rounded-full bg-green-600"
+                onClick={startVoice}
+                className="ml-4 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-900 transition"
               >
-                <FaPaperPlane className="text-white text-lg" />
+                <RiVoiceprintLine className="text-yellow-400 text-lg" />
               </button>
             )}
           </div>
