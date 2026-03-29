@@ -8,7 +8,8 @@ export default function SubjectAIChat({ subjectName = "this subject", subjectCod
   const [messages, setMessages] = useState([
     {
       role: "ai",
-      text: `Hi there! 👋 I'm your AI assistant for **${subjectName}**. Ask me anything about the course materials, past papers, or notes!`,
+      isWelcome: true,
+      text: `Hi there! 👋 I'm your AI assistant for ${subjectName}. Ask me anything about the course materials, past papers, or notes!`,
     },
   ]);
   const [input, setInput] = useState("");
@@ -56,6 +57,8 @@ export default function SubjectAIChat({ subjectName = "this subject", subjectCod
       let errorMsg = "Sorry, I encountered an error. Please try again.";
       if (error.response?.status === 429) {
         errorMsg = "⏳ AI quota limit reached. Please wait about a minute and try again.";
+      } else if (error.response?.status === 503) {
+        errorMsg = "🌐 Cannot reach the AI service. Please check your internet connection and try again.";
       } else if (error.response?.status === 500) {
         errorMsg = "The AI service encountered an error. Please try again in a moment.";
       } else if (!error.response) {
@@ -122,7 +125,13 @@ export default function SubjectAIChat({ subjectName = "this subject", subjectCod
                       : "bg-white border border-gray-200 text-gray-700 rounded-bl-md shadow-sm"
                   }`}
                 >
-                  {msg.text}
+                  {msg.isWelcome ? (
+                    <>
+                      Hi there! 👋 I&apos;m your AI assistant for <strong>{subjectName}</strong>. Ask me anything about the course materials, past papers, or notes!
+                    </>
+                  ) : (
+                    msg.text
+                  )}
                 </div>
               </div>
             ))}
