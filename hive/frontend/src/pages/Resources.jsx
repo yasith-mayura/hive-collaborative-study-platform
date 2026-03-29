@@ -250,7 +250,7 @@ export default function Resources() {
         {list.length === 0 ? (
           <p className="text-gray-500 italic">No resources available in this section.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[320px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
             {list.map((resource) => (
               <div
                 key={resource.resourceId}
