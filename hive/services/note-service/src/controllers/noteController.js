@@ -1,6 +1,13 @@
 // src/controllers/noteController.js
 const Note = require('../models/noteModel');
 
+const generateAutoTitle = (content = '') =>
+  content
+    .trim()
+    .split(/\s+/)
+    .slice(0, 4)
+    .join(' ');
+
 // GET notes (for logged-in user)
 async function getNotes(req, res) {
   try {
@@ -14,11 +21,17 @@ async function getNotes(req, res) {
 // CREATE note
 async function createNote(req, res) {
   try {
-    const { content, isVoiceNote } = req.body;
+    const { content, isVoiceNote, title } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ message: 'Content is required' });
+    }
+
+    const resolvedTitle = title && title.trim() ? title.trim() : generateAutoTitle(content);
 
     const note = new Note({
       userId: req.user.uid, // Firebase UID
-      title: content.substring(0, 20), // auto-generate title
+      title: resolvedTitle,
       content,
       isVoiceNote: isVoiceNote || false,
     });
@@ -48,18 +61,20 @@ async function deleteNote(req, res) {
 // UPDATE note
 async function updateNote(req, res) {
   try {
-    const { content, title } = req.body; // accept both fields
+    const { content, title } = req.body;
 
     const updateData = {};
 
     if (content !== undefined) {
       updateData.content = content;
-      // auto-update title only if title not explicitly provided
-      if (title === undefined) updateData.title = content.substring(0, 20);
     }
 
     if (title !== undefined) {
-      updateData.title = title;
+      updateData.title = title.trim();
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'No fields to update' });
     }
 
     const updatedNote = await Note.findByIdAndUpdate(

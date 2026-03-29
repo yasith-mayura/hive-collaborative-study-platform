@@ -8,25 +8,33 @@ import axios from "axios";
 
 export default function NotesPage() {
   const { user, token, loading } = useAuth();
-const [showSearch, setShowSearch] = useState(false);
-const [searchText, setSearchText] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchText, setSearchText] = useState("");
   const [notes, setNotes] = useState([]);
   const [selectedNote, setSelectedNote] = useState(null);
   const [editText, setEditText] = useState("");
+  const [editTopic, setEditTopic] = useState("");
+  const [newTopic, setNewTopic] = useState("");
   const [showMenuId, setShowMenuId] = useState(null);
-const [showEditPopup, setShowEditPopup] = useState(false);
-const [editPopupText, setEditPopupText] = useState("");
+  const [showEditPopup, setShowEditPopup] = useState(false);
+  const [editPopupText, setEditPopupText] = useState("");
   const [text, setText] = useState("");
-  const [showSend, setShowSend] = useState(false);
   const [isListening, setIsListening] = useState(false);
 
   const recognitionRef = useRef(null);
 
+  const getAutoTopic = (content = "") =>
+    content
+      .trim()
+      .split(/\s+/)
+      .slice(0, 4)
+      .join(" ");
+
   const filteredNotes = notes.filter((note) =>
-  (note.title || note.content)
-    .toLowerCase()
-    .includes(searchText.toLowerCase())
-);
+    (note.title || note.content)
+      .toLowerCase()
+      .includes(searchText.toLowerCase())
+  );
 
   // Create axios instance with proper headers
   const apiRef = useRef(null);
@@ -45,7 +53,13 @@ const [editPopupText, setEditPopupText] = useState("");
   // Fetch notes when user loads
   useEffect(() => {
     if (!loading && user) fetchNotes();
-  }, [loading, user]);
+  }, [loading, user, token]);
+
+  useEffect(() => {
+    if (!selectedNote) return;
+    setEditText(selectedNote.content || "");
+    setEditTopic(selectedNote.title || getAutoTopic(selectedNote.content));
+  }, [selectedNote]);
 
   const fetchNotes = async () => {
     if (!api) {
@@ -57,7 +71,6 @@ const [editPopupText, setEditPopupText] = useState("");
       setNotes(res.data);
       if (res.data.length > 0) {
         setSelectedNote(res.data[0]);
-        setEditText(res.data[0].content);
       }
     } catch (err) {
       console.error("Error fetching notes:", err);
@@ -66,7 +79,6 @@ const [editPopupText, setEditPopupText] = useState("");
 
   const selectNote = (note) => {
     setSelectedNote(note);
-    setEditText(note.content);
   };
 
   // Start voice recognition
@@ -100,7 +112,6 @@ const startVoice = () => {
 
   recognitionRef.current.onend = () => {
     if (isListening) recognitionRef.current.start(); // auto-restart
-    else setShowSend(true);
   };
 
   recognitionRef.current.start();
@@ -119,30 +130,40 @@ const startVoice = () => {
       return;
     }
     try {
-      console.log("Creating note with:", { content: text, isVoiceNote: false });
-      const res = await api.post("/create", { content: text, isVoiceNote: false });
+      const payload = { content: text, isVoiceNote: false };
+      if (newTopic.trim()) payload.title = newTopic.trim();
+
+      console.log("Creating note with:", payload);
+      const res = await api.post("/create", payload);
       console.log("Note created successfully:", res.data);
       setNotes([...notes, res.data]);
       setText("");
-      setShowSend(false);
+      setNewTopic("");
     } catch (err) {
       console.error("Error creating note:", err.response?.data || err.message);
       alert("Failed to create note. Check console for details.");
     }
   };
 
-  const updateNote = async (id, newContent) => {
+  const updateNote = async (id, payload) => {
     if (!api) {
       console.error("API not initialized");
       return;
     }
     try {
-      const res = await api.put(`/update/${id}`, { content: newContent });
+      const res = await api.put(`/update/${id}`, payload);
       setNotes(notes.map((n) => (n._id === id ? res.data : n)));
       setSelectedNote(res.data);
     } catch (err) {
       console.error("Error updating note:", err);
     }
+  };
+
+  const saveTopic = async () => {
+    if (!selectedNote) return;
+    const trimmedTopic = editTopic.trim();
+    if (!trimmedTopic) return;
+    await updateNote(selectedNote._id, { title: trimmedTopic });
   };
 
   const deleteNote = async (id) => {
@@ -170,9 +191,7 @@ const renameNote = async (note) => {
   }
 
   try {
-    const res = await api.put(`/update/${note._id}`, { title: newTitle });
-    setNotes(notes.map((n) => (n._id === note._id ? res.data : n)));
-    if (selectedNote?._id === note._id) setSelectedNote(res.data);
+    await updateNote(note._id, { title: newTitle.trim() });
   } catch (err) {
     console.error("Error renaming note:", err);
   }
@@ -338,7 +357,7 @@ useEffect(() => {
         </button>
         <button
           onClick={() => {
-            updateNote(selectedNote._id, editPopupText);
+            updateNote(selectedNote._id, { content: editPopupText });
             setEditText(editPopupText);
             setShowEditPopup(false);
           }}
@@ -353,12 +372,24 @@ useEffect(() => {
 
         {selectedNote ? (
           <>
-   <span className="text-2xl font-semibold mb-2 block">
-
-    
-      {selectedNote.title ||
-        selectedNote.content.split(" ").slice(0, 3).join(" ")}
-    </span>
+          <div className="mb-3">
+            <label className="block text-sm text-gray-600 mb-1">Topic</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={editTopic}
+                onChange={(e) => setEditTopic(e.target.value)}
+                onBlur={saveTopic}
+                className="w-full text-2xl font-semibold border border-gray-300 rounded px-3 py-2"
+              />
+              <button
+                className="px-3 py-2 bg-gray-100 rounded hover:bg-gray-200"
+                onClick={saveTopic}
+              >
+                Save Topic
+              </button>
+            </div>
+          </div>
           <button
         className="absolute top-2 right-2 bg-primary-500 text-white px-3 py-1 rounded hover:bg-primary-700"
         onClick={() => {
@@ -372,7 +403,7 @@ useEffect(() => {
             className="w-full flex-1 p-4 text-gray-900 bg-white rounded-md  resize-none overflow-auto"
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
-            onBlur={() => updateNote(selectedNote._id, editText)}
+            onBlur={() => updateNote(selectedNote._id, { content: editText })}
             style={{ minHeight: "6rem", maxHeight: "70vh" }}
           />
           </>
@@ -382,7 +413,16 @@ useEffect(() => {
  
         {/* Voice-to-text input */}
         <div className="mt-4 flex justify-center w-full">
-          <div className="flex items-center w-full">
+          <div className="w-full">
+            <input
+              type="text"
+              value={newTopic}
+              onChange={(e) => setNewTopic(e.target.value)}
+              placeholder="Topic (optional)"
+              className="w-full mb-3 rounded-xl border border-gray-300 px-4 py-2"
+            />
+
+            <div className="flex items-center w-full">
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -423,6 +463,7 @@ useEffect(() => {
                 <RiVoiceprintLine className="text-yellow-400 text-lg" />
               </button>
             )}
+            </div>
           </div>
         </div>
       </div>
