@@ -69,6 +69,7 @@ export default function FlashCards() {
   const [editingDeckId, setEditingDeckId] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
+  const [showMobileDecks, setShowMobileDecks] = useState(false);
 
   // Creation form state
   const [newDeckName, setNewDeckName] = useState("");
@@ -100,6 +101,7 @@ export default function FlashCards() {
     setCurrentCardIndex(0);
     setIsFlipped(false);
     setIsCreating(false);
+    if (showMobileDecks) setShowMobileDecks(false);
   };
 
   const handleAddCardRow = () => {
@@ -150,7 +152,6 @@ export default function FlashCards() {
     setIsEditing(false);
     setEditingDeckId(null);
     setNewDeckName("");
-    setNewDeckColor("charcoal");
     setNewCards([{ question: "", answer: "" }]);
   };
 
@@ -159,7 +160,6 @@ export default function FlashCards() {
     setIsEditing(false);
     setEditingDeckId(null);
     setNewDeckName("");
-    setNewDeckColor("charcoal");
     setNewCards([{ question: "", answer: "" }]);
   };
 
@@ -172,6 +172,7 @@ export default function FlashCards() {
     setEditingDeckId(deckId);
     setNewDeckName(deck.name);
     setNewCards(deck.cards.map((c) => ({ ...c })));
+    if (showMobileDecks) setShowMobileDecks(false);
   };
 
   const handleQuickAddCard = () => {
@@ -187,11 +188,30 @@ export default function FlashCards() {
   };
 
   return (
-    <div className="flex gap-0 h-[calc(100vh-120px)] -mx-4 md:-mx-6 -mt-4 md:-mt-6">
-      {/* Left Sidebar — My Cards */}
-      <div className="w-[220px] min-w-[220px] border-r border-gray-200 bg-white flex flex-col">
+    <div className="flex flex-col lg:flex-row gap-0 h-[calc(100vh-120px)] -mx-4 md:-mx-6 -mt-4 md:-mt-6 relative overflow-hidden">
+      {/* Mobile Backdrop for Deck Drawer */}
+      {showMobileDecks && (
+        <div 
+          className="fixed inset-0 bg-black/40 z-[60] lg:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setShowMobileDecks(false)}
+        />
+      )}
+
+      {/* Sidebar — My Cards (Hidden on mobile, drawer on mobile) */}
+      <div className={`
+        fixed inset-y-0 left-0 z-[70] w-[280px] bg-white transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:z-0 lg:w-[260px] lg:min-w-[260px] lg:border-r border-gray-200 flex flex-col
+        ${showMobileDecks ? "translate-x-0 shadow-2xl" : "-translate-x-full"}
+      `}>
+        {/* Mobile close button */}
+        <button 
+          onClick={() => setShowMobileDecks(false)}
+          className="absolute top-4 right-4 lg:hidden text-secondary-400 p-2 hover:bg-gray-100 rounded-full"
+        >
+          <Icon icon="heroicons-outline:x-mark" className="w-6 h-6" />
+        </button>
+
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-3">
+        <div className="flex items-center justify-between px-6 pt-6 pb-4">
           <h2 className="text-base font-semibold text-secondary-800">
             My Cards
           </h2>
@@ -247,6 +267,9 @@ export default function FlashCards() {
               </button>
             </div>
           ))}
+          {filteredDecks.length === 0 && (
+            <p className="text-center text-xs text-secondary-400 mt-10 italic">No decks found</p>
+          )}
         </div>
 
         {/* Add button */}
@@ -261,8 +284,31 @@ export default function FlashCards() {
       </div>
 
       {/* Right Content Area */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-slate-50/50">
-        {isCreating ? (
+      <div className="flex-1 flex flex-col bg-slate-50/50 relative overflow-y-auto">
+        {/* Mobile Header / Decks Trigger */}
+        <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-50">
+          <button 
+            onClick={() => setShowMobileDecks(true)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-primary-100 text-primary-900 rounded-lg text-xs font-bold shadow-sm active:scale-95 transition-transform"
+          >
+            <Icon icon="heroicons-outline:rectangle-stack" className="w-4 h-4" />
+            My Decks
+          </button>
+          {selectedDeck && (
+            <span className="text-xs font-semibold text-secondary-600 truncate max-w-[150px]">
+              {selectedDeck.name}
+            </span>
+          )}
+          <button
+            onClick={handleStartCreating}
+            className="p-1.5 bg-secondary-800 text-white rounded-lg shadow-md"
+          >
+            <Icon icon="heroicons-outline:plus" className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10">
+          {isCreating ? (
           /* ===== CREATION MODE ===== */
           <div className="w-full max-w-3xl">
             {/* Deck name input */}
@@ -277,15 +323,15 @@ export default function FlashCards() {
             </div>
 
             {/* Card rows */}
-            <div className="space-y-3">
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
               {newCards.map((card, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-0 bg-primary-50 border-2 border-primary-300 rounded-xl overflow-hidden"
+                  className="flex flex-col sm:flex-row items-stretch gap-0 bg-white border border-primary-200 rounded-xl overflow-hidden shadow-sm"
                 >
-                  <div className="flex-1 flex">
+                  <div className="flex-1 flex flex-col sm:flex-row">
                     {/* Question */}
-                    <div className="flex-1 px-4 py-3 border-r border-primary-200">
+                    <div className="flex-1 px-4 py-4 border-b sm:border-b-0 sm:border-r border-primary-100">
                       <label className="text-xs font-semibold text-secondary-500 mb-1 block">
                         Question {index + 1}
                       </label>
@@ -305,12 +351,12 @@ export default function FlashCards() {
                     </div>
 
                     {/* Answer */}
-                    <div className="flex-1 px-4 py-3">
+                    <div className="flex-1 px-4 py-4">
                       <label className="text-xs font-semibold text-secondary-500 mb-1 block">
                         Answer {index + 1}
                       </label>
-                      <input
-                        type="text"
+                      <textarea
+                        rows="2"
                         placeholder="Enter answer..."
                         value={card.answer}
                         onChange={(e) =>
@@ -320,7 +366,7 @@ export default function FlashCards() {
                             e.target.value
                           )
                         }
-                        className="w-full bg-transparent outline-none text-sm text-secondary-800 placeholder:text-secondary-300 border-b border-secondary-200 pb-1"
+                        className="w-full bg-transparent outline-none text-sm text-secondary-800 placeholder:text-secondary-300 border-b border-dotted border-secondary-200 focus:border-primary-400 transition-colors py-1 resize-none"
                       />
                     </div>
                   </div>
@@ -348,14 +394,14 @@ export default function FlashCards() {
             </div>
 
             {/* Create / Save button */}
-            <div className="flex justify-end gap-3 mt-5">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6">
               <button
                 onClick={() => {
                   setIsCreating(false);
                   setIsEditing(false);
                   setEditingDeckId(null);
                 }}
-                className="px-6 py-2.5 border border-secondary-300 text-secondary-600 text-sm font-medium rounded-lg hover:bg-secondary-50 transition"
+                className="w-full sm:w-auto px-6 py-2.5 border border-secondary-300 text-secondary-600 text-sm font-medium rounded-xl hover:bg-secondary-50 transition"
               >
                 Cancel
               </button>
@@ -365,106 +411,149 @@ export default function FlashCards() {
                   !newDeckName.trim() ||
                   !newCards.some((c) => c.question.trim() && c.answer.trim())
                 }
-                className="px-8 py-2.5 bg-secondary-700 text-white text-sm font-medium rounded-lg hover:bg-secondary-800 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-8 py-2.5 bg-secondary-800 text-white text-sm font-medium rounded-xl hover:bg-secondary-900 transition disabled:opacity-40 shadow-lg shadow-secondary-200"
               >
-                {isEditing ? "Save" : "Create"}
+                {isEditing ? "Save Deck" : "Create Deck"}
               </button>
             </div>
           </div>
         ) : currentCard ? (
           /* ===== VIEWER MODE ===== */
-          <div className="flex flex-col items-center gap-4">
-            <div className="flex items-center gap-6">
-              {/* Prev arrow */}
+          <div className="flex flex-col items-center gap-6 w-full max-w-2xl px-2">
+            <div className="w-full flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-secondary-400 uppercase tracking-widest">
+                Card {currentCardIndex + 1} of {selectedDeck.cards.length}
+              </span>
+              <button
+                onClick={handleQuickAddCard}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition active:scale-95"
+              >
+                <Icon icon="heroicons-outline:plus" className="w-3 h-3" />
+                ADD NEW CARD
+              </button>
+            </div>
+
+            <div className="relative w-full flex items-center gap-2 sm:gap-6 justify-center">
+              {/* Prev arrow (Desktop Only) */}
               <button
                 onClick={handlePrevCard}
                 disabled={currentCardIndex === 0}
-                className="text-secondary-300 hover:text-secondary-600 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                className="hidden sm:block text-secondary-300 hover:text-secondary-600 transition disabled:opacity-20"
               >
                 <Icon
                   icon="heroicons-outline:chevron-left"
-                  className="w-8 h-8"
+                  className="w-10 h-10"
                 />
               </button>
 
               {/* Flashcard */}
               <div
                 onClick={() => setIsFlipped(!isFlipped)}
-                className="w-[420px] h-[240px] cursor-pointer [perspective:1000px]"
+                className="w-full sm:w-[480px] aspect-[4/3] sm:aspect-auto sm:h-[280px] cursor-pointer [perspective:1000px] group"
               >
                 <div
-                  className={`relative w-full h-full transition-transform duration-500 [transform-style:preserve-3d] ${isFlipped ? "[transform:rotateY(180deg)]" : ""
+                  className={`relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped ? "[transform:rotateY(180deg)]" : ""
                     }`}
                 >
+                  {/* Visual card stack effect (background layers) */}
+                  <div className="absolute inset-0 bg-white/40 translate-x-2 translate-y-2 rounded-2xl -z-10 border border-black/5" />
+                  <div className="absolute inset-0 bg-white/60 translate-x-1 translate-y-1 rounded-2xl -z-10 border border-black/5" />
+
                   {/* Front — Question */}
                   <div
-                    className="absolute inset-0 [backface-visibility:hidden] rounded-2xl p-6 flex flex-col justify-between shadow-lg"
-                    style={{ backgroundColor: getCardColor(currentCardIndex).front }}
+                    className="absolute inset-0 [backface-visibility:hidden] rounded-2xl p-6 sm:p-10 flex flex-col justify-between shadow-2xl transition-shadow group-hover:shadow-primary-200"
+                    style={{ 
+                      background: `linear-gradient(135deg, ${getCardColor(currentCardIndex).front}, ${getCardColor(currentCardIndex).back})`,
+                    }}
                   >
-                    <p style={{ color: getCardColor(currentCardIndex).text }} className="text-sm leading-relaxed">
-                      {currentCard.question}
-                    </p>
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Question</span>
+                      <p style={{ color: getCardColor(currentCardIndex).text }} className="text-base sm:text-xl font-medium leading-relaxed">
+                        {currentCard.question}
+                      </p>
+                    </div>
                     <div className="flex justify-end">
-                      <span style={{ color: getCardColor(currentCardIndex).accent }} className="text-xs flex items-center gap-1">
+                      <span style={{ color: getCardColor(currentCardIndex).accent }} className="text-[11px] font-bold flex items-center gap-1.5 bg-black/10 px-3 py-1.5 rounded-full pointer-events-none">
                         <Icon
                           icon="heroicons-outline:arrow-path"
-                          className="w-4 h-4"
+                          className="w-4 h-4 animate-spin-slow"
                         />
-                        Click to flip
+                        FLIP TO REVEAL
                       </span>
                     </div>
                   </div>
 
                   {/* Back — Answer */}
                   <div
-                    className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] rounded-2xl p-6 flex flex-col justify-between shadow-lg"
-                    style={{ backgroundColor: getCardColor(currentCardIndex).back, border: `1px solid ${getCardColor(currentCardIndex).accent}30` }}
+                    className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] rounded-2xl p-6 sm:p-10 flex flex-col justify-between shadow-2xl transition-shadow border-4"
+                    style={{ 
+                      backgroundColor: "#FFFFFF",
+                      borderColor: getCardColor(currentCardIndex).front,
+                    }}
                   >
-                    <p className="text-sm leading-relaxed" style={{ color: "#E5E7EB" }}>
-                      {currentCard.answer}
-                    </p>
-                    <div className="flex justify-between items-center">
-                      <span style={{ color: getCardColor(currentCardIndex).accent }} className="text-xs">Answer</span>
-                      <span style={{ color: getCardColor(currentCardIndex).accent }} className="text-xs flex items-center gap-1">
-                        <Icon
-                          icon="heroicons-outline:arrow-path"
-                          className="w-4 h-4"
-                        />
-                        Click to flip
-                      </span>
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-bold text-secondary-400 uppercase tracking-widest">Answer</span>
+                      <div className="overflow-y-auto max-h-[160px] pr-1 scrollbar-hide">
+                        <p className="text-base sm:text-lg font-semibold text-secondary-800 leading-relaxed">
+                          {currentCard.answer}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center bg-slate-50 -m-6 sm:-m-10 mt-0 p-4 sm:px-10">
+                       <span style={{ color: getCardColor(currentCardIndex).front }} className="text-[10px] font-black uppercase tracking-tighter">Correct?</span>
+                       <div className="flex items-center gap-1 sm:gap-2">
+                          <button className="p-2 hover:bg-green-100 rounded-full text-green-600 transition" onClick={(e) => e.stopPropagation()}>
+                            <Icon icon="heroicons-outline:check-circle" className="w-6 h-6" />
+                          </button>
+                          <button className="p-2 hover:bg-red-100 rounded-full text-red-600 transition" onClick={(e) => e.stopPropagation()}>
+                            <Icon icon="heroicons-outline:x-circle" className="w-6 h-6" />
+                          </button>
+                       </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Next arrow */}
+              {/* Next arrow (Desktop Only) */}
               <button
                 onClick={handleNextCard}
                 disabled={
                   !selectedDeck ||
                   currentCardIndex >= selectedDeck.cards.length - 1
                 }
-                className="text-secondary-300 hover:text-secondary-600 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                className="hidden sm:block text-secondary-300 hover:text-secondary-600 transition disabled:opacity-20"
               >
                 <Icon
                   icon="heroicons-outline:chevron-right"
-                  className="w-8 h-8"
+                  className="w-10 h-10"
                 />
               </button>
             </div>
 
-            {/* Card counter + Add card button */}
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-secondary-400">
-                {currentCardIndex + 1} / {selectedDeck.cards.length}
-              </span>
-              <button
-                onClick={handleQuickAddCard}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-secondary-600 border border-secondary-200 rounded-lg hover:bg-primary-100 hover:border-primary-300 transition"
-              >
-                <Icon icon="heroicons-outline:plus" className="w-3.5 h-3.5" />
-                Add Card
-              </button>
+            {/* Mobile Navigation Bar */}
+            <div className="w-full flex sm:hidden items-center justify-between gap-4 mt-8 px-4 py-2 bg-white rounded-2xl shadow-lg border border-gray-100">
+               <button
+                  onClick={handlePrevCard}
+                  disabled={currentCardIndex === 0}
+                  className="flex-1 flex items-center justify-center py-3 text-secondary-600 disabled:opacity-20 active:scale-95 transition-transform"
+                >
+                  <Icon icon="heroicons-outline:arrow-left" className="w-6 h-6" />
+                </button>
+                <div className="w-[1px] h-8 bg-gray-100" />
+                <button
+                  onClick={() => setIsFlipped(!isFlipped)}
+                  className="flex-1 flex items-center justify-center py-3 text-primary-600 active:scale-95 transition-transform"
+                >
+                  <Icon icon="heroicons-outline:arrow-path" className="w-6 h-6" />
+                </button>
+                <div className="w-[1px] h-8 bg-gray-100" />
+                <button
+                  onClick={handleNextCard}
+                  disabled={!selectedDeck || currentCardIndex >= selectedDeck.cards.length - 1}
+                  className="flex-1 flex items-center justify-center py-3 text-secondary-600 disabled:opacity-20 active:scale-95 transition-transform"
+                >
+                  <Icon icon="heroicons-outline:arrow-right" className="w-6 h-6" />
+                </button>
             </div>
           </div>
         ) : (
@@ -481,5 +570,6 @@ export default function FlashCards() {
         )}
       </div>
     </div>
+  </div>
   );
 }
