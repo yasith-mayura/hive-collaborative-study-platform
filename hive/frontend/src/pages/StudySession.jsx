@@ -421,11 +421,10 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
 
   return (
     <div className="min-h-screen bg-primary">
-      <div className="flex flex-col xl:flex-row gap-4 p-4">
+      <div className={`p-4 grid grid-cols-1 gap-6 ${isUpcomingTasks ? "lg:grid-cols-3" : "lg:grid-cols-1"}`}>
         {/* Calendar Section */}
         <div
-          className={`w-full bg-white rounded-xl border border-gray-200 p-6 shadow-sm ${isUpcomingTasks ? "xl:w-4/5" : "xl:w-full"
-            }`}
+          className={`bg-white rounded-xl border border-gray-200 p-6 shadow-sm ${isUpcomingTasks ? "lg:col-span-2" : ""}`}
         >
           <div className="flex items-center justify-between gap-3 mb-6">
             {isUpcomingTasks && (
@@ -570,7 +569,7 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
 
         {/* Upcoming Tasks Sidebar */}
         {isUpcomingTasks && (
-          <div className="w-full xl:w-1/5 bg-white rounded-xl border border-gray-200 p-6 shadow-sm max-h-[760px] flex flex-col">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm h-fit">
             <UpcomingTasks
               tasks={upcomingSessions}
               loading={loading}

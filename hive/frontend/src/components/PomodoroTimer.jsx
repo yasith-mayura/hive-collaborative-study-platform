@@ -10,7 +10,7 @@ const PRESETS = {
   longBreak: { minutes: 15, color: "#3B82F6", glow: "bg-blue-300", label: "Long Break" }
 };
 
-const ALARM_SOUND = "https://actions.google.com/sounds/v1/alarms/beep_short.ogg";
+const ALARM_SOUND = "https://actions.google.com/sounds/v1/emergency/beeper_emergency_call.ogg";
 
 export default function PomodoroTimer() {
   const location = useLocation();
