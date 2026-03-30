@@ -119,6 +119,9 @@ const AppSidebar = () => {
 
   const handleModeSwitch = () => {
     toggleViewMode();
+    if (isMobileOpen) {
+      toggleMobileSidebar();
+    }
     // Navigate to the appropriate dashboard
     if (viewMode === "admin") {
       navigate("/");
@@ -142,7 +145,7 @@ const AppSidebar = () => {
         lg:translate-x-0`}
     >
       <div className="flex items-center justify-between py-4 px-5">
-        <Link to="/">
+        <Link to="/" onClick={() => isMobileOpen && toggleMobileSidebar()}>
           {isExpanded || isMobileOpen ? (
             <>
               <img src="/logo.png" alt="Hive Logo" width={80} height={32} />
@@ -190,6 +193,7 @@ const AppSidebar = () => {
                   // Normal Navigation Link
                   <Link
                     to={item.path}
+                    onClick={() => isMobileOpen && toggleMobileSidebar()}
                     className={`flex items-center px-4 py-3 rounded-md transition ${!(isExpanded || isMobileOpen) ? "justify-center" : ""} ${isItemActive(item.path)
                       ? "bg-primary-300 font-semibold text-primary-900"
                       : "bg-primary-50 hover:bg-primary-100"
