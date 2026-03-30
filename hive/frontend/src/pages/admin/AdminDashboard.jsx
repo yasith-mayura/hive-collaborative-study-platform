@@ -66,9 +66,9 @@ export default function AdminDashboard() {
       </h2>
 
       {/* Main layout: calendar + sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar — reuse the full StudySession component (admin CRUD built-in) */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-2">
           <StudySessionCalendar isUpcomingTasks={false} />
         </div>
 
