@@ -1,13 +1,13 @@
 import React from "react";
 import { getSubjectColor } from "@/lib/colors";
 
-export default function UpcomingTasks({ tasks = [], loading = false }) {
+export default function UpcomingTasks({ tasks = [], loading = false, onTaskClick }) {
     return (
         <div>
             <h3 className="text-sm font-semibold text-secondary-700 mb-3">
                 Upcoming tasks
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-3 font-inter">
                 {loading && (
                     <p className="text-xs text-secondary-400 italic">Finding your next buzz... 🐝</p>
                 )}
@@ -18,10 +18,16 @@ export default function UpcomingTasks({ tasks = [], loading = false }) {
 
                 {!loading && tasks.map((task, index) => {
                     const subjectColor = getSubjectColor(task.subjectCode);
+                    const isClickable = !!onTaskClick;
+                    const Component = isClickable ? "button" : "div";
+
                     return (
-                        <div
+                        <Component
                             key={task._id || index}
-                            className="p-3 rounded-r-xl transition-all border-l-[4px] shadow-sm flex flex-col gap-1.5"
+                            type={isClickable ? "button" : undefined}
+                            onClick={isClickable ? () => onTaskClick(task) : undefined}
+                            className={`w-full text-left p-3 rounded-r-xl transition-all border-l-[4px] shadow-sm flex flex-col gap-1.5 ${isClickable ? "hover:scale-[1.02] cursor-pointer" : ""
+                                }`}
                             style={{
                                 backgroundColor: subjectColor.bg,
                                 borderLeftColor: subjectColor.border,
@@ -33,22 +39,22 @@ export default function UpcomingTasks({ tasks = [], loading = false }) {
                                     {task.topic || task.title}
                                 </p>
                                 <span
-                                    className="text-[8px] px-1.5 py-0.5 rounded-md font-bold  tracking-tight whitespace-nowrap"
+                                    className="text-[8px] px-1.5 py-0.5 rounded-md font-bold tracking-tight whitespace-nowrap"
                                     style={{ backgroundColor: `${subjectColor.border}33`, color: subjectColor.text }}
                                 >
                                     {task.type}
                                 </span>
                             </div>
-                            <div className="flex items-center gap-2 opacity-70 font-semibold">
-                                <span className="text-[10px]">
+                            <div className="flex items-center gap-2 opacity-70 font-semibold text-[10px]">
+                                <span>
                                     {task.time} • {new Date(task.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
                                 </span>
-                                <span className="text-[10px] opacity-60">•</span>
-                                <span className="text-[10px] truncate max-w-[80px]">
+                                <span className="opacity-60">•</span>
+                                <span className="truncate max-w-[80px]">
                                     {task.subjectCode}
                                 </span>
                             </div>
-                        </div>
+                        </Component>
                     );
                 })}
             </div>

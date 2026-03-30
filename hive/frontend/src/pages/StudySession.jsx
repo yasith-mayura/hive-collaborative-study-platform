@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { getSubjectColor } from "@/lib/colors";
 import Modal from "@/components/ui/Modal";
+import UpcomingTasks from "@/components/UpcomingTasks";
 import { toast } from "react-toastify";
 
 const localizer = momentLocalizer(moment);
@@ -570,35 +571,11 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
         {/* Upcoming Tasks Sidebar */}
         {isUpcomingTasks && (
           <div className="w-full xl:w-1/5 bg-white rounded-xl border border-gray-200 p-6 shadow-sm max-h-[760px] flex flex-col">
-            <h3 className="font-bold text-lg mb-5 text-gray-800">
-              Upcoming Tasks
-            </h3>
-            <div className="space-y-4 overflow-y-auto pr-1">
-              {upcomingSessions.map((task) => (
-                <button
-                  type="button"
-                  key={task._id}
-                  className="w-full text-left bg-gray-50 p-4 rounded-lg border-l-[6px] border-primary-500 shadow-sm hover:bg-primary-50 transition"
-                  onClick={() => openSessionDetails(task._id)}
-                >
-                  <p className="font-semibold text-base text-gray-900">
-                    {task.topic}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {formatDdMmYyyy(task.date)} • {task.time}
-                  </p>
-                  <span className="inline-block mt-2 text-xs bg-primary-100 text-primary-900 px-2 py-1 rounded-md font-medium">
-                    {task.type}
-                  </span>
-                </button>
-              ))}
-
-              {upcomingSessions.length === 0 && (
-                <p className="text-gray-500 text-sm leading-6">
-                  No upcoming sessions.
-                </p>
-              )}
-            </div>
+            <UpcomingTasks
+              tasks={upcomingSessions}
+              loading={loading}
+              onTaskClick={(task) => openSessionDetails(task._id)}
+            />
           </div>
         )}
       </div>

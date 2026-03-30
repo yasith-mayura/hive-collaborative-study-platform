@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getAllStudents, getAllSubjects } from "@/services";
+import { getAllStudents, getAllSubjects, getAllSessions } from "@/services";
 import StudySessionCalendar from "@/pages/StudySession";
+import UpcomingTasks from "@/components/UpcomingTasks";
 
 const SUBJECT_DOT_COLORS = [
   "#FFCC00",
@@ -19,6 +20,8 @@ export default function AdminDashboard() {
 
   const [studentCount, setStudentCount] = useState(0);
   const [subjects, setSubjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
 
   useEffect(() => {
     getAllStudents()
@@ -28,6 +31,31 @@ export default function AdminDashboard() {
     getAllSubjects()
       .then((data) => setSubjects(Array.isArray(data) ? data : []))
       .catch(() => setSubjects([]));
+
+    const fetchTasks = async () => {
+      setLoadingTasks(true);
+      try {
+        const sessions = await getAllSessions();
+        const todayColombo = new Date();
+        todayColombo.setHours(0, 0, 0, 0);
+
+        const futureTasks = (sessions || [])
+          .map((task) => {
+            const utc = new Date(task.date);
+            const local = new Date(utc.getTime() + 5.5 * 60 * 60 * 1000);
+            return { ...task, localDate: local };
+          })
+          .filter((task) => task.localDate >= todayColombo)
+          .sort((a, b) => a.localDate - b.localDate);
+
+        setTasks(futureTasks);
+      } catch (err) {
+        console.error("Admin dashboard fetch error:", err);
+      } finally {
+        setLoadingTasks(false);
+      }
+    };
+    fetchTasks();
   }, []);
 
   return (
@@ -52,6 +80,11 @@ export default function AdminDashboard() {
             <p className="text-5xl font-bold text-secondary-800">
               {studentCount}
             </p>
+          </div>
+
+          {/* Upcoming Tasks */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <UpcomingTasks tasks={tasks.slice(0, 4)} loading={loadingTasks} />
           </div>
 
           {/* Subjects with access */}
