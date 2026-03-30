@@ -16,13 +16,13 @@ export default function PomodoroTimer() {
   const location = useLocation();
   const isDashboard = location.pathname === "/";
   const isFloating = !isDashboard;
-  
+
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [portalNode, setPortalNode] = useState(null);
 
   const [mode, setMode] = useState("focus");
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
-  
+
   const [duration, setDuration] = useState(PRESETS.focus.minutes * 60);
   const [timeLeft, setTimeLeft] = useState(PRESETS.focus.minutes * 60);
   const [isRunning, setIsRunning] = useState(false);
@@ -77,12 +77,12 @@ export default function PomodoroTimer() {
           if (prev <= 1) {
             clearInterval(intervalRef.current);
             setIsRunning(false);
-            
+
             try {
               const audio = new Audio(ALARM_SOUND);
-              audio.volume = 0.5;
+              audio.volume = 1;
               audio.play();
-            } catch(e) {}
+            } catch (e) { }
 
             setMode((currentMode) => {
               if (currentMode === "focus") {
@@ -163,7 +163,7 @@ export default function PomodoroTimer() {
   // If we are collapsed (only possible when floating)
   if (isFloating && isCollapsed) {
     return (
-      <button 
+      <button
         onClick={() => setIsCollapsed(false)}
         className="fixed bottom-6 right-6 z-[100] bg-white shadow-xl px-4 py-3 rounded-full border border-gray-200 flex items-center gap-2 hover:bg-gray-50 transition-all font-bold text-secondary-800 tracking-wider group animate-fade-in"
       >
@@ -175,10 +175,10 @@ export default function PomodoroTimer() {
 
   const timerContent = (
     <div className={`transition-all duration-300 bg-white ${isFloating ? 'fixed bottom-6 right-6 z-[100] shadow-2xl p-6 rounded-2xl w-[320px] border border-gray-100 animate-fade-in' : 'flex flex-col items-center relative w-full h-full'}`}>
-      
+
       {/* Collapse button when floating */}
       {isFloating && (
-        <button 
+        <button
           onClick={() => setIsCollapsed(true)}
           className="absolute top-4 right-4 text-secondary-600 bg-secondary-100 hover:bg-secondary-200 hover:text-secondary-900 rounded-full w-8 h-8 flex items-center justify-center transition-colors z-20 shadow-sm"
           title="Minimize timer"
@@ -193,9 +193,8 @@ export default function PomodoroTimer() {
             <button
               key={presetKey}
               onClick={() => setPreset(presetKey)}
-              className={`px-3 py-1.5 text-[11px] sm:text-xs font-semibold rounded-md transition duration-200 ${
-                mode === presetKey ? "bg-white text-secondary-900 shadow-sm" : "text-secondary-500 hover:text-secondary-700"
-              }`}
+              className={`px-3 py-1.5 text-[11px] sm:text-xs font-semibold rounded-md transition duration-200 ${mode === presetKey ? "bg-white text-secondary-900 shadow-sm" : "text-secondary-500 hover:text-secondary-700"
+                }`}
             >
               {PRESETS[presetKey].label}
             </button>
@@ -206,9 +205,8 @@ export default function PomodoroTimer() {
       <div className="flex flex-col items-center flex-1 justify-center relative">
         {/* Timer circle */}
         <div
-          className={`relative w-[140px] h-[140px] flex items-center justify-center ${
-            !isRunning ? "cursor-pointer hover:scale-105 transition-transform" : ""
-          }`}
+          className={`relative w-[140px] h-[140px] flex items-center justify-center ${!isRunning ? "cursor-pointer hover:scale-105 transition-transform" : ""
+            }`}
           onClick={handleTimeClick}
           title={!isRunning ? "Click to set time" : ""}
         >
