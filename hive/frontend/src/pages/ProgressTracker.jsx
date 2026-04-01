@@ -246,7 +246,23 @@ function SemesterModal({
   };
 
   const renderCourseRow = (course, forceSelected = false) => {
-    const isSelected = forceSelected || selectedCodes.includes(course.courseCode);
+    const hasGrade = Boolean(grades[course.courseCode]);
+    const isSelected = forceSelected || selectedCodes.includes(course.courseCode) || hasGrade;
+
+    const handleGradeChange = (value) => {
+      if (!forceSelected) {
+        if (value && !selectedCodes.includes(course.courseCode)) {
+          toggleCourseSelection(course.courseCode);
+        }
+
+        if (!value && selectedCodes.includes(course.courseCode)) {
+          toggleCourseSelection(course.courseCode);
+          return;
+        }
+      }
+
+      updateCourseGrade(course.courseCode, value);
+    };
 
     return (
       <div
@@ -268,20 +284,18 @@ function SemesterModal({
         </div>
         <div className="col-span-2 text-sm text-secondary-700">{course.creditHours} Credits</div>
         <div className="col-span-4">
-          {isSelected && (
-            <select
-              className="form-control"
-              value={grades[course.courseCode] || ""}
-              onChange={(e) => updateCourseGrade(course.courseCode, e.target.value)}
-            >
-              <option value="">Select Grade</option>
-              {GRADE_OPTIONS.map((grade) => (
-                <option key={grade} value={grade}>
-                  {grade}
-                </option>
-              ))}
-            </select>
-          )}
+          <select
+            className="form-control"
+            value={grades[course.courseCode] || ""}
+            onChange={(e) => handleGradeChange(e.target.value)}
+          >
+            <option value="">Select Grade</option>
+            {GRADE_OPTIONS.map((grade) => (
+              <option key={grade} value={grade}>
+                {grade}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
     );
@@ -347,49 +361,45 @@ function SemesterModal({
             </div>
           ) : (
             <>
-              <div className="border border-slate-200 rounded-md p-3 bg-slate-50">
-                <h3 className="text-sm font-semibold text-secondary-800 mb-2">Compulsory Courses</h3>
-                {compulsoryCourses.length > 0 ? (
-                  compulsoryCourses.map((course) => renderCourseRow(course, true))
-                ) : (
-                  <p className="text-sm text-secondary-500">No compulsory courses found.</p>
-                )}
-              </div>
+              {compulsoryCourses.length > 0 && (
+                <div className="border border-slate-200 rounded-md p-3 bg-slate-50">
+                  <h3 className="text-sm font-semibold text-secondary-800 mb-2">Compulsory Courses</h3>
+                  {compulsoryCourses.map((course) => renderCourseRow(course, true))}
+                </div>
+              )}
 
-              <div className="border border-slate-200 rounded-md p-3">
-                <h3 className="text-sm font-semibold text-secondary-800 mb-2">Optional Courses</h3>
-                {optionalCourses.length > 0 ? (
-                  optionalCourses.map((course) => renderCourseRow(course))
-                ) : (
-                  <p className="text-sm text-secondary-500">No optional courses found.</p>
-                )}
-              </div>
+              {optionalCourses.length > 0 && (
+                <div className="border border-slate-200 rounded-md p-3">
+                  <h3 className="text-sm font-semibold text-secondary-800 mb-2">Optional Courses</h3>
+                  {optionalCourses.map((course) => renderCourseRow(course))}
+                </div>
+              )}
 
-              <div className="border border-slate-200 rounded-md p-3">
-                <h3 className="text-sm font-semibold text-secondary-800 mb-2">Specialisation Courses</h3>
-                {Object.keys(specialisationByTrack).length > 0 ? (
-                  Object.entries(specialisationByTrack).map(([track, courses]) => (
+              {Object.keys(specialisationByTrack).length > 0 && (
+                <div className="border border-slate-200 rounded-md p-3">
+                  <h3 className="text-sm font-semibold text-secondary-800 mb-2">Specialisation Courses</h3>
+                  {Object.entries(specialisationByTrack).map(([track, courses]) => (
                     <div key={track} className="mb-3 last:mb-0">
                       <p className="text-xs font-medium uppercase text-secondary-500 mb-1">{track}</p>
                       {courses.map((course) => renderCourseRow(course))}
                     </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-secondary-500">No specialisation courses found.</p>
-                )}
-              </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
 
-        <div className="bg-slate-50 border border-slate-200 rounded-md p-4">
-          <p className="text-sm text-secondary-700 font-medium">
-            Semester GPA: <span className="text-secondary-900">{preview.semesterGPA.toFixed(2)}</span>
-          </p>
-          <p className="text-sm text-secondary-700 font-medium mt-1">
-            Total Credits: <span className="text-secondary-900">{preview.totalCredits}</span>
-          </p>
-        </div>
+        {selectedCourses.length > 0 && (
+          <div className="bg-slate-50 border border-slate-200 rounded-md p-4">
+            <p className="text-sm text-secondary-700 font-medium">
+              Semester GPA: <span className="text-secondary-900">{preview.semesterGPA.toFixed(2)}</span>
+            </p>
+            <p className="text-sm text-secondary-700 font-medium mt-1">
+              Total Credits: <span className="text-secondary-900">{preview.totalCredits}</span>
+            </p>
+          </div>
+        )}
       </div>
     </Modal>
   );
