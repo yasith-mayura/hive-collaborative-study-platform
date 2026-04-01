@@ -613,7 +613,8 @@ export default function ProgressTracker() {
     }
 
     for (const code of selectedCodes) {
-      if (!GRADE_MAP[semesterForm.courseGrades?.[code]]) {
+      const selectedGrade = semesterForm.courseGrades?.[code];
+      if (!Object.prototype.hasOwnProperty.call(GRADE_MAP, selectedGrade)) {
         return "All selected courses must have a grade.";
       }
     }
