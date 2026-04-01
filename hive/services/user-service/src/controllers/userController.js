@@ -1,6 +1,15 @@
 const User = require('../models/User');
 const admin = require('firebase-admin');
 
+const STUDENT_NUMBER_PATTERN = /^SE\/(\d{4})\/\d{3}$/;
+
+const parseBatchFromStudentNumber = (studentNumber) => {
+  const match = String(studentNumber || '').match(STUDENT_NUMBER_PATTERN);
+  return match ? parseInt(match[1], 10) : null;
+};
+
+const isAdmin = (req) => req.user?.role === 'admin';
+
 const syncFirebaseSafely = async (firebaseUid, operation, label) => {
   if (!firebaseUid) return null;
 
@@ -16,7 +25,12 @@ const syncFirebaseSafely = async (firebaseUid, operation, label) => {
 // GET all users (admin or superadmin)
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({ isActive: true }).select('-password');
+    const query = { isActive: true };
+    if (isAdmin(req)) {
+      query.batch = req.user.batch;
+    }
+
+    const users = await User.find(query).select('-password');
     return res.json(users);
   } catch (err) {
     console.error('getAllUsers error', err);
@@ -27,7 +41,12 @@ const getAllUsers = async (req, res) => {
 // GET all students only (for promoting to admin)
 const getAllStudents = async (req, res) => {
   try {
-    const students = await User.find({ role: 'student', isActive: true }).select('-password');
+    const query = { role: 'student', isActive: true };
+    if (isAdmin(req)) {
+      query.batch = req.user.batch;
+    }
+
+    const students = await User.find(query).select('-password');
     return res.json(students);
   } catch (err) {
     console.error('getAllStudents error', err);
@@ -42,13 +61,20 @@ const getUserById = async (req, res) => {
     const user = await User.findOne({ studentNumber }).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Allow admins/superadmins or the user themself
+    // Allow superadmin, own profile, or admin from same batch.
     if (
       req.user.role !== 'superadmin' &&
-      req.user.role !== 'admin' &&
       req.user.uid !== user.firebaseUid
     ) {
       return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    if (
+      req.user.role === 'admin' &&
+      req.user.uid !== user.firebaseUid &&
+      user.batch !== req.user.batch
+    ) {
+      return res.status(403).json({ message: 'Forbidden: different batch' });
     }
 
     return res.json(user);
@@ -137,6 +163,17 @@ const createUser = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
+    if (isAdmin(req)) {
+      const newUserBatch = parseBatchFromStudentNumber(studentNumber);
+      if (newUserBatch === null) {
+        return res.status(400).json({ message: "Invalid student number format" });
+      }
+
+      if (newUserBatch !== req.user.batch) {
+        return res.status(403).json({ message: "Forbidden: can only create users in your batch" });
+      }
+    }
+
     // Always assign student role (DO NOT TRUST FRONTEND)
     const assignedRole = "student";
 
@@ -204,7 +241,12 @@ const deleteUser = async (req, res) => {
     const { studentNumber } = req.params;
 
     // Find user first
-    const user = await User.findOne({ studentNumber, role: "student" });
+    const userQuery = { studentNumber, role: "student" };
+    if (isAdmin(req)) {
+      userQuery.batch = req.user.batch;
+    }
+
+    const user = await User.findOne(userQuery);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -248,7 +290,12 @@ const updateUser = async (req, res) => {
     const { studentNumber } = req.params;
     const { name, email, studentNumber: nextStudentNumber } = req.body;
 
-    const user = await User.findOne({ studentNumber, role: "student", isActive: true });
+    const userQuery = { studentNumber, role: "student", isActive: true };
+    if (isAdmin(req)) {
+      userQuery.batch = req.user.batch;
+    }
+
+    const user = await User.findOne(userQuery);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -262,6 +309,16 @@ const updateUser = async (req, res) => {
     }
 
     if (nextStudentNumber && nextStudentNumber !== user.studentNumber) {
+      if (isAdmin(req)) {
+        const nextBatch = parseBatchFromStudentNumber(nextStudentNumber);
+        if (nextBatch === null) {
+          return res.status(400).json({ message: "Invalid student number format" });
+        }
+        if (nextBatch !== req.user.batch) {
+          return res.status(403).json({ message: "Forbidden: cannot move user to a different batch" });
+        }
+      }
+
       const duplicateStudentNumber = await User.findOne({
         studentNumber: nextStudentNumber,
         _id: { $ne: user._id },
