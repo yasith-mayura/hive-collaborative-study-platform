@@ -17,6 +17,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   addSemester,
   deleteSemester,
+  getCourses,
   getProgress,
   getProgressByUserId,
   getProgressSummary,
@@ -38,20 +39,15 @@ const GRADE_MAP = {
 
 const GRADE_OPTIONS = Object.keys(GRADE_MAP);
 
-const emptyModule = {
-  moduleCode: "",
-  moduleName: "",
-  creditHours: 3,
-  grade: "",
-};
-
 const emptySemesterForm = {
-  year: "",
+  yearLevel: "",
   semester: "",
-  modules: [{ ...emptyModule }],
+  selectedCourseCodes: [],
+  courseGrades: {},
 };
 
 const round2 = (value) => Number((value || 0).toFixed(2));
+const toStoredYear = (yearLevel) => `Y${Number(yearLevel)}`;
 
 const getErrorMessage = (error, fallbackMessage) => {
   const status = error?.response?.status;
@@ -106,8 +102,17 @@ const calculatePreview = (modules = []) => {
 };
 
 const parseYearStart = (year) => {
+  const yearLevelMatch = String(year || "").trim().match(/^Y([1-4])$/i);
+  if (yearLevelMatch) return Number(yearLevelMatch[1]);
+
   const parsed = Number((year || "").split("/")[0]);
   return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const displayYear = (year) => {
+  const yearLevelMatch = String(year || "").trim().match(/^Y([1-4])$/i);
+  if (yearLevelMatch) return `Year ${yearLevelMatch[1]}`;
+  return year;
 };
 
 const sortSemesters = (semesters = []) => {
@@ -129,15 +134,12 @@ const formatTrend = (semesters = []) => {
   const sorted = sortSemesters(semesters);
   const baseYear = sorted.length > 0 ? parseYearStart(sorted[0].year) : 0;
 
-  return sorted.map((semester) => {
-    const yearIndex = Math.max(parseYearStart(semester.year) - baseYear + 1, 1);
-    return {
-      ...semester,
-      label: `Y${yearIndex}S${semester.semester}`,
-      gpa: semester.semesterGPA,
-      credits: semester.totalCredits,
-    };
-  });
+  return sorted.map((semester) => ({
+    ...semester,
+    label: `Y${Math.max(parseYearStart(semester.year) - baseYear + 1, 1)}S${semester.semester}`,
+    gpa: semester.semesterGPA,
+    credits: semester.totalCredits,
+  }));
 };
 
 function SemesterModal({
@@ -145,36 +147,125 @@ function SemesterModal({
   title,
   form,
   setForm,
+  availableCourses,
+  isCoursesLoading,
   onClose,
   onSubmit,
   isSaving,
 }) {
-  const preview = useMemo(() => calculatePreview(form.modules), [form.modules]);
+  const compulsoryCourses = useMemo(
+    () => availableCourses.filter((course) => course.status === "compulsory"),
+    [availableCourses]
+  );
+  const optionalCourses = useMemo(
+    () => availableCourses.filter((course) => course.status === "optional"),
+    [availableCourses]
+  );
+  const specialisationCourses = useMemo(
+    () => availableCourses.filter((course) => course.status === "specialisation"),
+    [availableCourses]
+  );
 
-  const setField = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
+  const selectedCodes = form.selectedCourseCodes || [];
+  const grades = form.courseGrades || {};
 
-  const updateModule = (index, field, value) => {
+  const selectedCourses = useMemo(() => {
+    const selectedSet = new Set(selectedCodes);
+    return availableCourses.filter((course) => selectedSet.has(course.courseCode));
+  }, [availableCourses, selectedCodes]);
+
+  const preview = useMemo(
+    () =>
+      calculatePreview(
+        selectedCourses.map((course) => ({
+          moduleCode: course.courseCode,
+          moduleName: course.courseName,
+          creditHours: course.creditHours,
+          grade: grades[course.courseCode] || "",
+        }))
+      ),
+    [selectedCourses, grades]
+  );
+
+  const specialisationByTrack = useMemo(() => {
+    return specialisationCourses.reduce((acc, course) => {
+      const key = course.specialisationTrack || "Other";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(course);
+      return acc;
+    }, {});
+  }, [specialisationCourses]);
+
+  const setField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const toggleCourseSelection = (courseCode) => {
     setForm((prev) => {
-      const nextModules = [...prev.modules];
-      nextModules[index] = {
-        ...nextModules[index],
-        [field]: field === "creditHours" ? Number(value) || 0 : value,
+      const exists = prev.selectedCourseCodes.includes(courseCode);
+      const selectedCourseCodes = exists
+        ? prev.selectedCourseCodes.filter((code) => code !== courseCode)
+        : [...prev.selectedCourseCodes, courseCode];
+
+      const nextGrades = { ...prev.courseGrades };
+      if (exists) delete nextGrades[courseCode];
+
+      return {
+        ...prev,
+        selectedCourseCodes,
+        courseGrades: nextGrades,
       };
-      return { ...prev, modules: nextModules };
     });
   };
 
-  const addModuleRow = () => {
-    setForm((prev) => ({ ...prev, modules: [...prev.modules, { ...emptyModule }] }));
+  const updateCourseGrade = (courseCode, grade) => {
+    setForm((prev) => ({
+      ...prev,
+      courseGrades: {
+        ...prev.courseGrades,
+        [courseCode]: grade,
+      },
+    }));
   };
 
-  const removeModuleRow = (index) => {
-    setForm((prev) => {
-      if (prev.modules.length === 1) return prev;
-      return { ...prev, modules: prev.modules.filter((_, i) => i !== index) };
-    });
+  const renderCourseRow = (course, forceSelected = false) => {
+    const isSelected = forceSelected || selectedCodes.includes(course.courseCode);
+
+    return (
+      <div
+        key={course.courseCode}
+        className="grid grid-cols-12 gap-2 items-center py-2 border-b border-slate-100 last:border-b-0"
+      >
+        <div className="col-span-1">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={isSelected}
+            disabled={forceSelected}
+            onChange={() => toggleCourseSelection(course.courseCode)}
+          />
+        </div>
+        <div className="col-span-5 text-sm text-secondary-800">
+          <p className="font-medium">{course.courseCode}</p>
+          <p className="text-xs text-secondary-500">{course.courseName}</p>
+        </div>
+        <div className="col-span-2 text-sm text-secondary-700">{course.creditHours} Credits</div>
+        <div className="col-span-4">
+          {isSelected && (
+            <select
+              className="form-control"
+              value={grades[course.courseCode] || ""}
+              onChange={(e) => updateCourseGrade(course.courseCode, e.target.value)}
+            >
+              <option value="">Select Grade</option>
+              {GRADE_OPTIONS.map((grade) => (
+                <option key={grade} value={grade}>
+                  {grade}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const footerContent = (
@@ -195,7 +286,7 @@ function SemesterModal({
       activeModal={isOpen}
       onClose={onClose}
       title={title}
-      className="max-w-4xl"
+      className="max-w-5xl"
       footerContent={footerContent}
       scrollContent
       centered
@@ -203,14 +294,18 @@ function SemesterModal({
       <div className="space-y-5">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="fromGroup">
-            <label className="form-label">Academic Year</label>
-            <input
-              type="text"
+            <label className="form-label">Year</label>
+            <select
               className="form-control"
-              placeholder="eg 2023/2024"
-              value={form.year}
-              onChange={(e) => setField("year", e.target.value)}
-            />
+              value={form.yearLevel}
+              onChange={(e) => setField("yearLevel", Number(e.target.value))}
+            >
+              <option value="">Select Year</option>
+              <option value={1}>Year 1</option>
+              <option value={2}>Year 2</option>
+              <option value={3}>Year 3</option>
+              <option value={4}>Year 4</option>
+            </select>
           </div>
           <div className="fromGroup">
             <label className="form-label">Semester</label>
@@ -226,86 +321,46 @@ function SemesterModal({
           </div>
         </div>
 
-        <div>
-          <label className="form-label">Modules</label>
-          <div className="overflow-x-auto border border-slate-200 rounded-md">
-            <table className="min-w-full divide-y divide-slate-100 table-fixed">
-              <thead>
-                <tr>
-                  <th className="table-th">Module Code</th>
-                  <th className="table-th">Module Name</th>
-                  <th className="table-th">Credits</th>
-                  <th className="table-th">Grade</th>
-                  <th className="table-th">Action</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-slate-100">
-                {form.modules.map((module, index) => (
-                  <tr key={index}>
-                    <td className="table-td">
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="eg SENG 11213"
-                        value={module.moduleCode}
-                        onChange={(e) => updateModule(index, "moduleCode", e.target.value)}
-                      />
-                    </td>
-                    <td className="table-td">
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="Module name"
-                        value={module.moduleName}
-                        onChange={(e) => updateModule(index, "moduleName", e.target.value)}
-                      />
-                    </td>
-                    <td className="table-td">
-                      <input
-                        type="number"
-                        min="1"
-                        max="4"
-                        className="form-control"
-                        value={module.creditHours}
-                        onChange={(e) => updateModule(index, "creditHours", e.target.value)}
-                      />
-                    </td>
-                    <td className="table-td">
-                      <select
-                        className="form-control"
-                        value={module.grade}
-                        onChange={(e) => updateModule(index, "grade", e.target.value)}
-                      >
-                        <option value="">Select Grade</option>
-                        {GRADE_OPTIONS.map((grade) => (
-                          <option key={grade} value={grade}>
-                            {grade}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="table-td">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => removeModuleRow(index)}
-                        disabled={form.modules.length === 1}
-                      >
-                        <Icon icon="heroicons-outline:trash" className="text-sm" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <button
-            type="button"
-            className="btn btn-sm btn-outline-secondary mt-3"
-            onClick={addModuleRow}
-          >
-            + Add Module
-          </button>
+        <div className="space-y-4">
+          {isCoursesLoading ? (
+            <div className="flex justify-center items-center h-24 border border-slate-200 rounded-md">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
+            </div>
+          ) : (
+            <>
+              <div className="border border-slate-200 rounded-md p-3 bg-slate-50">
+                <h3 className="text-sm font-semibold text-secondary-800 mb-2">Compulsory Courses</h3>
+                {compulsoryCourses.length > 0 ? (
+                  compulsoryCourses.map((course) => renderCourseRow(course, true))
+                ) : (
+                  <p className="text-sm text-secondary-500">No compulsory courses found.</p>
+                )}
+              </div>
+
+              <div className="border border-slate-200 rounded-md p-3">
+                <h3 className="text-sm font-semibold text-secondary-800 mb-2">Optional Courses</h3>
+                {optionalCourses.length > 0 ? (
+                  optionalCourses.map((course) => renderCourseRow(course))
+                ) : (
+                  <p className="text-sm text-secondary-500">No optional courses found.</p>
+                )}
+              </div>
+
+              <div className="border border-slate-200 rounded-md p-3">
+                <h3 className="text-sm font-semibold text-secondary-800 mb-2">Specialisation Courses</h3>
+                {Object.keys(specialisationByTrack).length > 0 ? (
+                  Object.entries(specialisationByTrack).map(([track, courses]) => (
+                    <div key={track} className="mb-3 last:mb-0">
+                      <p className="text-xs font-medium uppercase text-secondary-500 mb-1">{track}</p>
+                      {courses.map((course) => renderCourseRow(course))}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-secondary-500">No specialisation courses found.</p>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="bg-slate-50 border border-slate-200 rounded-md p-4">
@@ -343,6 +398,7 @@ export default function ProgressTracker() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadingCourses, setLoadingCourses] = useState(false);
   const [error, setError] = useState("");
 
   const [summaryList, setSummaryList] = useState([]);
@@ -363,6 +419,7 @@ export default function ProgressTracker() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editSemesterId, setEditSemesterId] = useState("");
   const [semesterForm, setSemesterForm] = useState(emptySemesterForm);
+  const [availableCourses, setAvailableCourses] = useState([]);
 
   const [targetGPA, setTargetGPA] = useState("");
   const [plannedCredits, setPlannedCredits] = useState("");
@@ -425,6 +482,48 @@ export default function ProgressTracker() {
     loadStudentProgress();
   }, [isAdminUser]);
 
+  useEffect(() => {
+    const loadCoursesForSelection = async () => {
+      if (!(isAddModalOpen || isEditModalOpen)) return;
+      if (![1, 2, 3, 4].includes(Number(semesterForm.yearLevel))) {
+        setAvailableCourses([]);
+        return;
+      }
+      if (![1, 2].includes(Number(semesterForm.semester))) {
+        setAvailableCourses([]);
+        return;
+      }
+
+      try {
+        setLoadingCourses(true);
+        const response = await getCourses({
+          year: semesterForm.yearLevel,
+          semester: semesterForm.semester,
+        });
+
+        const courses = response?.courses || [];
+        const compulsoryCodes = courses
+          .filter((course) => course.status === "compulsory")
+          .map((course) => course.courseCode);
+
+        setAvailableCourses(courses);
+        setSemesterForm((prev) => ({
+          ...prev,
+          selectedCourseCodes: Array.from(
+            new Set([...compulsoryCodes, ...(prev.selectedCourseCodes || [])])
+          ).filter((code) => courses.some((course) => course.courseCode === code)),
+        }));
+      } catch (requestError) {
+        Notification.error(getErrorMessage(requestError, "Failed to load courses."));
+        setAvailableCourses([]);
+      } finally {
+        setLoadingCourses(false);
+      }
+    };
+
+    loadCoursesForSelection();
+  }, [isAddModalOpen, isEditModalOpen, semesterForm.yearLevel, semesterForm.semester]);
+
   const trendData = useMemo(() => formatTrend(progress.semesters), [progress.semesters]);
 
   const filteredSummary = useMemo(() => {
@@ -439,31 +538,38 @@ export default function ProgressTracker() {
   }, [searchQuery, summaryList]);
 
   const validationError = useMemo(() => {
-    if (!/^\d{4}\/\d{4}$/.test(semesterForm.year || "")) {
-      return "Academic year must be in YYYY/YYYY format.";
+    if (![1, 2, 3, 4].includes(Number(semesterForm.yearLevel))) {
+      return "Year must be between 1 and 4.";
     }
     if (![1, 2].includes(Number(semesterForm.semester))) {
       return "Semester must be either 1 or 2.";
     }
-    if (!semesterForm.modules.length) {
-      return "At least one module is required.";
+
+    const selectedCodes = semesterForm.selectedCourseCodes || [];
+    if (!selectedCodes.length) {
+      return "At least one course is required.";
     }
 
-    for (const module of semesterForm.modules) {
-      if (!module.moduleCode.trim() || !module.moduleName.trim()) {
-        return "All module fields are required.";
-      }
-      if (Number(module.creditHours) < 1 || Number(module.creditHours) > 4) {
-        return "Credit hours must be between 1 and 4.";
-      }
-      if (!GRADE_MAP[module.grade]) {
-        return "Grade must be selected.";
+    const compulsoryCodes = availableCourses
+      .filter((course) => course.status === "compulsory")
+      .map((course) => course.courseCode);
+
+    for (const compulsoryCode of compulsoryCodes) {
+      if (!selectedCodes.includes(compulsoryCode)) {
+        return "All compulsory courses must remain selected.";
       }
     }
 
+    for (const code of selectedCodes) {
+      if (!GRADE_MAP[semesterForm.courseGrades?.[code]]) {
+        return "All selected courses must have a grade.";
+      }
+    }
+
+    const storedYear = toStoredYear(semesterForm.yearLevel);
     const duplicate = progress.semesters.some(
       (semester) =>
-        semester.year === semesterForm.year &&
+        semester.year === storedYear &&
         Number(semester.semester) === Number(semesterForm.semester) &&
         semester._id !== editSemesterId
     );
@@ -473,25 +579,36 @@ export default function ProgressTracker() {
     }
 
     return "";
-  }, [semesterForm, progress.semesters, editSemesterId]);
+  }, [semesterForm, progress.semesters, editSemesterId, availableCourses]);
 
   const openAddModal = () => {
     setSemesterForm(emptySemesterForm);
+    setAvailableCourses([]);
     setEditSemesterId("");
     setIsAddModalOpen(true);
   };
 
   const openEditModal = (semester) => {
+    const yearLevelMatch = String(semester.year || "").match(/^Y([1-4])$/i);
+    const inferredYearLevel = yearLevelMatch
+      ? Number(yearLevelMatch[1])
+      : Math.min(
+          4,
+          Math.max(
+            1,
+            sortSemesters(progress.semesters).findIndex((entry) => entry.year === semester.year) + 1
+          )
+        );
+
     setSemesterForm({
-      year: semester.year,
+      yearLevel: inferredYearLevel,
       semester: semester.semester,
-      modules: (semester.modules || []).map((module) => ({
-        moduleCode: module.moduleCode,
-        moduleName: module.moduleName,
-        creditHours: module.creditHours,
-        grade: module.grade,
-      })),
+      selectedCourseCodes: (semester.modules || []).map((module) => module.moduleCode),
+      courseGrades: Object.fromEntries(
+        (semester.modules || []).map((module) => [module.moduleCode, module.grade])
+      ),
     });
+    setAvailableCourses([]);
     setEditSemesterId(semester._id);
     setIsEditModalOpen(true);
   };
@@ -501,6 +618,7 @@ export default function ProgressTracker() {
     setIsEditModalOpen(false);
     setEditSemesterId("");
     setSemesterForm(emptySemesterForm);
+    setAvailableCourses([]);
   };
 
   const saveSemester = async () => {
@@ -512,14 +630,17 @@ export default function ProgressTracker() {
     setSaving(true);
     try {
       const payload = {
-        year: semesterForm.year,
+        year: toStoredYear(semesterForm.yearLevel),
         semester: Number(semesterForm.semester),
-        modules: semesterForm.modules.map((module) => ({
-          moduleCode: module.moduleCode.trim(),
-          moduleName: module.moduleName.trim(),
-          creditHours: Number(module.creditHours),
-          grade: module.grade,
-        })),
+        modules: (semesterForm.selectedCourseCodes || []).map((courseCode) => {
+          const matchedCourse = availableCourses.find((course) => course.courseCode === courseCode);
+          return {
+            moduleCode: courseCode,
+            moduleName: matchedCourse?.courseName || courseCode,
+            creditHours: Number(matchedCourse?.creditHours || 1),
+            grade: semesterForm.courseGrades[courseCode],
+          };
+        }),
       };
 
       const response = isEditModalOpen
@@ -703,7 +824,7 @@ export default function ProgressTracker() {
         </div>
       </div>
     );
-  };
+  }
 
   const currentGPA = Number(summary.currentGPA || progress.cumulativeGPA || 0);
   const highestSemester = Number(summary.highestSemesterGPA || 0);
@@ -830,7 +951,7 @@ export default function ProgressTracker() {
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                   <div>
                     <h3 className="text-base font-semibold text-secondary-800">
-                      {semester.year} - Semester {semester.semester}
+                      {displayYear(semester.year)} - Semester {semester.semester}
                     </h3>
                     <p className="text-sm text-secondary-500 mt-1">Total Credits: {semester.totalCredits}</p>
                   </div>
@@ -962,6 +1083,8 @@ export default function ProgressTracker() {
         title="Add Semester Results"
         form={semesterForm}
         setForm={setSemesterForm}
+        availableCourses={availableCourses}
+        isCoursesLoading={loadingCourses}
         onClose={closeModals}
         onSubmit={saveSemester}
         isSaving={saving}
@@ -972,6 +1095,8 @@ export default function ProgressTracker() {
         title="Edit Semester Results"
         form={semesterForm}
         setForm={setSemesterForm}
+        availableCourses={availableCourses}
+        isCoursesLoading={loadingCourses}
         onClose={closeModals}
         onSubmit={saveSemester}
         isSaving={saving}
