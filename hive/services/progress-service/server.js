@@ -2,10 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const dotenv = require('dotenv');
+
+dotenv.config();
+
 const connectDB = require('./src/config/db');
 const progressRoutes = require('./src/routes/progressRoutes');
 
-dotenv.config();
 const PORT = process.env.PORT || 3005;
 
 connectDB(process.env.MONGO_URI || 'mongodb://localhost:27017/hive');

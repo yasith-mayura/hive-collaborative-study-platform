@@ -1,21 +1,27 @@
 const admin = require('firebase-admin');
 const User = require('../models/User');
 
-// Initialize Firebase Admin if not already initialized (expects env vars)
-// NOTE: In production, use service account JSON or environment variables securely.
-if (!admin.apps.length) {
+const initFirebaseAdmin = () => {
+  if (admin.apps.length) return;
+
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY
     ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
     : undefined;
 
+  if (!projectId || !clientEmail || !privateKey) {
+    throw new Error('Missing Firebase service account environment variables');
+  }
+
   admin.initializeApp({
     credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: privateKey,
+      projectId,
+      clientEmail,
+      privateKey,
     }),
   });
-}
+};
 
 const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -26,6 +32,7 @@ const authMiddleware = async (req, res, next) => {
   const idToken = authHeader.split('Bearer ')[1].trim();
 
   try {
+    initFirebaseAdmin();
     const decoded = await admin.auth().verifyIdToken(idToken);
 
     const dbUser = await User.findOne({ firebaseUid: decoded.uid, isActive: true }).lean();
@@ -45,7 +52,7 @@ const authMiddleware = async (req, res, next) => {
 
     next();
   } catch (err) {
-    console.error('Firebase token verification failed', err.message);
+    console.error('Firebase auth failed', err.message);
     return res.status(403).json({ message: 'Forbidden' });
   }
 };
