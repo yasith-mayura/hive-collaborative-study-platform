@@ -6,7 +6,6 @@ import Notification from "@/components/ui/Notification";
 import AdminProfile from "@/pages/superadmin/components/AdminProfile";
 import AdminSearch from "@/pages/superadmin/components/AdminSearch";
 import { getAllAdmins, deleteAdmin, updateAdmin } from "@/services";
-import AddNewAdminModal from "./components/AddNewAdmin";
 import PromoteUserToAdmin from "./components/PromoteUserToAdmin";
 
 function AdminManagement() {
@@ -16,7 +15,6 @@ function AdminManagement() {
   const [fetchLoading, setFetchLoading] = useState(true);
   const [openDrawer, setOpenDrawer] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
-  const [openModal, setOpenModal] = useState(false);
   const [openPromoteModal, setOpenPromoteModal] = useState(false);
 
   const columns = [
@@ -108,22 +106,13 @@ function AdminManagement() {
               handleSearch={handleSearch}
             />
           </div>
-          <div className="flex gap-2">
-            <button
-              className="inline-flex items-center justify-center gap-2 rounded-sm py-2 px-4 bg-green-600 text-white shadow-theme-xs hover:bg-green-700"
-              onClick={() => setOpenPromoteModal(true)}
-            >
-              <Icon icon="heroicons-outline:arrow-up" className="w-5 h-5" />
-              Promote User
-            </button>
-            <button
-              className="inline-flex items-center justify-center gap-2 rounded-sm py-2 px-4 bg-gray-800 text-white shadow-theme-xs hover:bg-gray-900"
-              onClick={() => setOpenModal(true)}
-            >
-              <Icon icon="heroicons-outline:plus" className="w-5 h-5" />
-              Add New Admin
-            </button>
-          </div>
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-sm py-2 px-4 bg-green-600 text-white shadow-theme-xs hover:bg-green-700"
+            onClick={() => setOpenPromoteModal(true)}
+          >
+            <Icon icon="heroicons-outline:arrow-up" className="w-5 h-5" />
+            Promote User
+          </button>
         </div>
 
         <Card noborder>
@@ -215,12 +204,6 @@ function AdminManagement() {
           />
         )}
       </Drawer>
-
-      <AddNewAdminModal
-        isOpen={openModal}
-        closeModal={() => setOpenModal(false)}
-        onAdminAdded={fetchAdmins}
-      />
 
       <PromoteUserToAdmin
         isOpen={openPromoteModal}

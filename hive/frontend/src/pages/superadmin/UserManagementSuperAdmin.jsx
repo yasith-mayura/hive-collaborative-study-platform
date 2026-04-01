@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from "react";
 import Card from "@/components/ui/Card";
-import Icon from "@/components/ui/Icon";
 import Drawer from "@/components/ui/Drawer";
 import Notification from "@/components/ui/Notification";
 import UserProfile from "@/pages/admin/components/UserProfile";
 import UserSearch from "@/pages/admin/components/UserSearch";
 import { getAllUsers, getUserByStudentNumber, deleteUser, updateUser } from "@/services";
-import AddNewUserModel from "@/pages/admin/components/AddNewUser";
 
 function UserManagementSuperAdmin() {
   const [users, setUsers] = useState([]);
@@ -16,7 +14,6 @@ function UserManagementSuperAdmin() {
   const [fetchLoading, setFetchLoading] = useState(true);
   const [openDrawer, setOpenDrawer] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [openModel, setOpenModel] = useState(false);
 
   const columns = [
     { label: "Name", field: "name" },
@@ -124,17 +121,6 @@ function UserManagementSuperAdmin() {
   return (
     <>
       <div className="overflow-hidden">
-        {/* Row 1: Add New User button */}
-        <div className="flex justify-end mb-4">
-          <button
-            className="inline-flex items-center justify-center gap-2 rounded-sm py-2 px-4 bg-gray-800 text-white shadow-theme-xs hover:bg-gray-900"
-            onClick={() => setOpenModel(true)}
-          >
-            <Icon icon="heroicons-outline:plus" className="w-5 h-5" />
-            Add New User
-          </button>
-        </div>
-
         {/* Row 2: Filter (left) + Search (right) */}
         <div className="flex items-center justify-between mb-4 gap-3">
           <select
@@ -250,12 +236,6 @@ function UserManagementSuperAdmin() {
           />
         )}
       </Drawer>
-
-      <AddNewUserModel
-        isOpen={openModel}
-        closeModal={() => setOpenModel(false)}
-        onUserAdded={fetchUsers}
-      />
     </>
   );
 }
