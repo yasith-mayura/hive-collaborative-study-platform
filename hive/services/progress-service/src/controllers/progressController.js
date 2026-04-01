@@ -15,7 +15,6 @@ const GRADE_POINTS = {
   'D+': 1.3,
   D: 1.0,
   E: 0.0,
-  F: 0.0,
 };
 
 const round2 = (value) => Number((value || 0).toFixed(2));

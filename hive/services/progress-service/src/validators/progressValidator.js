@@ -1,6 +1,6 @@
 const { body, param, validationResult } = require('express-validator');
 
-const grades = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'E', 'F'];
+const grades = ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'E'];
 const courseStatus = ['compulsory', 'optional', 'specialisation'];
 const tracks = ['Net', 'Mobile', 'Data', 'Health', 'Gaming', 'Business'];
 

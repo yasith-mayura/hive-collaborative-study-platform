@@ -37,7 +37,6 @@ const GRADE_MAP = {
   "D+": 1.3,
   D: 1.0,
   E: 0.0,
-  F: 0.0,
 };
 
 const GRADE_OPTIONS = Object.keys(GRADE_MAP);

@@ -8,7 +8,7 @@ const moduleSchema = new mongoose.Schema(
     grade: {
       type: String,
       required: true,
-      enum: ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'E', 'F'],
+      enum: ['A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D+', 'D', 'E'],
     },
     gradePoints: { type: Number, required: true, min: 0, max: 4 },
   },
