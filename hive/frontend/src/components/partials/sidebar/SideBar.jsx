@@ -103,6 +103,12 @@ const navItems = [
     path: "/resources",
     allowed: ["superadmin"],
   },
+  {
+    icon: "book-open",
+    name: "Course Management",
+    path: "/superadmin/courses",
+    allowed: ["superadmin"],
+  },
 ];
 
 const AppSidebar = () => {
