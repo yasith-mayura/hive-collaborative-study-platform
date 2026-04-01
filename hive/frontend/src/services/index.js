@@ -44,3 +44,12 @@ export {
   deleteResource,
   getResourceStats,
 } from "./resourceService";
+
+export {
+  getProgress,
+  getProgressByUserId,
+  addSemester,
+  updateSemester,
+  deleteSemester,
+  getProgressSummary,
+} from "./progressService";
