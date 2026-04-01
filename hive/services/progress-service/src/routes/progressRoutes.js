@@ -5,6 +5,9 @@ const {
   semesterPayloadValidation,
   semesterIdValidation,
   userIdValidation,
+  courseCodeParamValidation,
+  createCourseValidation,
+  updateCourseValidation,
 } = require('../validators/progressValidator');
 const {
   getProgress,
@@ -14,11 +17,42 @@ const {
   deleteSemester,
   getSummary,
 } = require('../controllers/progressController');
+const {
+  getCourses,
+  getCourseByCode,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+} = require('../controllers/courseController');
 
 const router = express.Router();
 
 router.get('/', authMiddleware, getProgress);
 router.get('/summary', authMiddleware, getSummary);
+router.get('/courses', authMiddleware, getCourses);
+router.get('/courses/:courseCode', authMiddleware, courseCodeParamValidation, getCourseByCode);
+router.post(
+  '/courses',
+  authMiddleware,
+  requireRole('superadmin'),
+  createCourseValidation,
+  createCourse
+);
+router.put(
+  '/courses/:courseCode',
+  authMiddleware,
+  requireRole('superadmin'),
+  courseCodeParamValidation,
+  updateCourseValidation,
+  updateCourse
+);
+router.delete(
+  '/courses/:courseCode',
+  authMiddleware,
+  requireRole('superadmin'),
+  courseCodeParamValidation,
+  deleteCourse
+);
 router.get('/:userId', authMiddleware, requireRole('admin', 'superadmin'), userIdValidation, getProgressByUserId);
 
 router.post('/semester', authMiddleware, semesterPayloadValidation, addSemester);
