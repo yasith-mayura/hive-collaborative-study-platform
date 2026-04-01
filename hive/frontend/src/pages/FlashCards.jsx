@@ -1,5 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Icon from "@/components/ui/Icon";
+import { useAuth } from "@/context/AuthContext";
+import { getFlashCardDecks,
+  createFlashCardDeck,
+  updateFlashCardDeck,
+  deleteFlashCardDeck, } from "@/services";
+
 
 // Card color themes — assigned per card automatically
 const CARD_COLORS = [
@@ -12,56 +18,10 @@ const CARD_COLORS = [
 
 const getCardColor = (index) => CARD_COLORS[index % CARD_COLORS.length];
 
-// Mock deck data
-const initialDecks = [
-  {
-    id: 1,
-    name: "Data Structures",
-    cards: [
-      {
-        question: "What is a stack?",
-        answer:
-          "A stack is a linear data structure that follows the Last In First Out (LIFO) principle.",
-      },
-      {
-        question: "What is a queue?",
-        answer:
-          "A queue is a linear data structure that follows the First In First Out (FIFO) principle.",
-      },
-      {
-        question: "What is a linked list?",
-        answer:
-          "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam?",
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "Data Structures",
-    cards: [
-      {
-        question: "What is a binary tree?",
-        answer:
-          "A binary tree is a tree data structure where each node has at most two children.",
-      },
-    ],
-  },
-  {
-    id: 3,
-    name: "Data Structures",
-    cards: [
-      {
-        question: "What is a graph?",
-        answer:
-          "A graph is a non-linear data structure consisting of vertices and edges.",
-      },
-    ],
-  },
-];
-
 export default function FlashCards() {
-  const [decks, setDecks] = useState(initialDecks);
-  const [selectedDeckId, setSelectedDeckId] = useState(1);
+  const { user, loading } = useAuth();
+  const [decks, setDecks] = useState([]);
+  const [selectedDeckId, setSelectedDeckId] = useState(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -70,19 +30,44 @@ export default function FlashCards() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [showMobileDecks, setShowMobileDecks] = useState(false);
-  // Track right/wrong marks: { [deckId]: { [cardIndex]: 'correct' | 'incorrect' } }
-  const [cardMarks, setCardMarks] = useState({});
+  const [isLoadingDecks, setIsLoadingDecks] = useState(true);
+  const [requestError, setRequestError] = useState("");
 
   // Creation form state
   const [newDeckName, setNewDeckName] = useState("");
   const [newCards, setNewCards] = useState([{ question: "", answer: "" }]);
 
-  const selectedDeck = decks.find((d) => d.id === selectedDeckId);
+  const selectedDeck = decks.find((d) => d._id === selectedDeckId);
   const currentCard = selectedDeck?.cards[currentCardIndex];
 
   const filteredDecks = decks.filter((d) =>
     d.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  useEffect(() => {
+    if (!loading && user) {
+      fetchDecks();
+    }
+  }, [loading, user]);
+
+  const fetchDecks = async () => {
+    try {
+      setIsLoadingDecks(true);
+      setRequestError("");
+      const data = await getFlashCardDecks();
+      setDecks(data || []);
+
+      if (data?.length) {
+        setSelectedDeckId((prev) => prev || data[0]._id);
+      } else {
+        setSelectedDeckId(null);
+      }
+    } catch (err) {
+      setRequestError(err.response?.data?.message || "Failed to load flashcard decks");
+    } finally {
+      setIsLoadingDecks(false);
+    }
+  };
 
   const handlePrevCard = () => {
     if (selectedDeck && currentCardIndex > 0) {
@@ -156,39 +141,47 @@ export default function FlashCards() {
     setNewCards(updated);
   };
 
-  const handleCreate = () => {
-    const validCards = newCards.filter(
-      (c) => c.question.trim() && c.answer.trim()
-    );
-    if (validCards.length === 0 || !newDeckName.trim()) return;
-
-    if (isEditing && editingDeckId) {
-      // Update existing deck
-      setDecks(
-        decks.map((d) =>
-          d.id === editingDeckId
-            ? { ...d, name: newDeckName.trim(), cards: validCards }
-            : d
-        )
-      );
-      setSelectedDeckId(editingDeckId);
-      setCurrentCardIndex(0);
-    } else {
-      // Create new deck
-      const newDeck = {
-        id: Date.now(),
-        name: newDeckName.trim(),
-        cards: validCards,
-      };
-      setDecks([...decks, newDeck]);
-      setSelectedDeckId(newDeck.id);
-      setCurrentCardIndex(0);
-    }
+  const resetEditorState = () => {
     setIsCreating(false);
     setIsEditing(false);
     setEditingDeckId(null);
     setNewDeckName("");
     setNewCards([{ question: "", answer: "" }]);
+  };
+
+  const handleCreate = async () => {
+    const validCards = newCards.filter(
+      (c) => c.question.trim() && c.answer.trim()
+    );
+    if (validCards.length === 0 || !newDeckName.trim()) return;
+
+    try {
+      setRequestError("");
+
+      if (isEditing && editingDeckId) {
+        const updatedDeck = await updateFlashCardDeck(editingDeckId, {
+          name: newDeckName.trim(),
+          cards: validCards,
+        });
+        setDecks((prev) =>
+          prev.map((d) => (d._id === editingDeckId ? updatedDeck : d))
+        );
+        setSelectedDeckId(editingDeckId);
+      } else {
+        const createdDeck = await createFlashCardDeck({
+          name: newDeckName.trim(),
+          cards: validCards,
+        });
+        setDecks((prev) => [createdDeck, ...prev]);
+        setSelectedDeckId(createdDeck._id);
+      }
+
+      setCurrentCardIndex(0);
+      setIsFlipped(false);
+      resetEditorState();
+    } catch (err) {
+      setRequestError(err.response?.data?.message || "Unable to save deck");
+    }
   };
 
   const handleStartCreating = () => {
@@ -201,7 +194,7 @@ export default function FlashCards() {
 
   const handleEditDeck = (e, deckId) => {
     e.stopPropagation();
-    const deck = decks.find((d) => d.id === deckId);
+    const deck = decks.find((d) => d._id === deckId);
     if (!deck) return;
     setIsCreating(true);
     setIsEditing(true);
@@ -215,12 +208,36 @@ export default function FlashCards() {
     if (!selectedDeck) return;
     setIsCreating(true);
     setIsEditing(true);
-    setEditingDeckId(selectedDeck.id);
+    setEditingDeckId(selectedDeck._id);
     setNewDeckName(selectedDeck.name);
     setNewCards([
       ...selectedDeck.cards.map((c) => ({ ...c })),
       { question: "", answer: "" },
     ]);
+  };
+
+  const handleDeleteDeck = async (e, deckId) => {
+    e.stopPropagation();
+
+    try {
+      setRequestError("");
+      await deleteFlashCardDeck(deckId);
+
+      const updatedDecks = decks.filter((deck) => deck._id !== deckId);
+      setDecks(updatedDecks);
+
+      if (selectedDeckId === deckId) {
+        setSelectedDeckId(updatedDecks[0]?._id || null);
+        setCurrentCardIndex(0);
+        setIsFlipped(false);
+      }
+
+      if (isEditing && editingDeckId === deckId) {
+        resetEditorState();
+      }
+    } catch (err) {
+      setRequestError(err.response?.data?.message || "Unable to delete deck");
+    }
   };
 
   return (
@@ -277,11 +294,19 @@ export default function FlashCards() {
 
         {/* Deck list */}
         <div className="flex-1 overflow-y-auto px-6 space-y-2 pb-6 mt-1">
+          {isLoadingDecks && (
+            <p className="text-center text-xs text-secondary-400 mt-8 italic">Loading decks...</p>
+          )}
+
+          {!isLoadingDecks && requestError && (
+            <p className="text-center text-xs text-red-500 mt-8">{requestError}</p>
+          )}
+
           {filteredDecks.map((deck) => (
             <div
-              key={deck.id}
-              onClick={() => handleSelectDeck(deck.id)}
-              className={`group w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition text-sm cursor-pointer ${selectedDeckId === deck.id && !isCreating
+              key={deck._id}
+              onClick={() => handleSelectDeck(deck._id)}
+              className={`group w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition text-sm cursor-pointer ${selectedDeckId === deck._id && !isCreating
                 ? "bg-primary-100 text-secondary-900 font-medium shadow-sm"
                 : "text-secondary-600 hover:bg-gray-50 border border-transparent hover:border-gray-100"
                 }`}
@@ -292,7 +317,7 @@ export default function FlashCards() {
               />
               <span className="truncate flex-1">{deck.name}</span>
               <button
-                onClick={(e) => handleEditDeck(e, deck.id)}
+                onClick={(e) => handleEditDeck(e, deck._id)}
                 className="opacity-0 group-hover:opacity-100 text-secondary-400 hover:text-primary-600 transition"
                 title="Edit deck"
               >
@@ -301,9 +326,19 @@ export default function FlashCards() {
                   className="w-4 h-4"
                 />
               </button>
+              <button
+                onClick={(e) => handleDeleteDeck(e, deck._id)}
+                className="opacity-0 group-hover:opacity-100 text-secondary-400 hover:text-red-500 transition"
+                title="Delete deck"
+              >
+                <Icon
+                  icon="heroicons-outline:trash"
+                  className="w-4 h-4"
+                />
+              </button>
             </div>
           ))}
-          {filteredDecks.length === 0 && (
+          {!isLoadingDecks && filteredDecks.length === 0 && !requestError && (
             <p className="text-center text-xs text-secondary-400 mt-10 italic">No decks found</p>
           )}
         </div>
@@ -432,11 +467,7 @@ export default function FlashCards() {
             {/* Create / Save button */}
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6">
               <button
-                onClick={() => {
-                  setIsCreating(false);
-                  setIsEditing(false);
-                  setEditingDeckId(null);
-                }}
+                onClick={resetEditorState}
                 className="w-full sm:w-auto px-6 py-2.5 border border-secondary-300 text-secondary-600 text-sm font-medium rounded-xl hover:bg-secondary-50 transition"
               >
                 Cancel
