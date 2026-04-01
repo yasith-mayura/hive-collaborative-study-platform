@@ -555,29 +555,6 @@ export default function ProgressTracker() {
 
   const trendData = useMemo(() => formatTrend(progress.semesters), [progress.semesters]);
 
-  const cumulativeGpaBySemesterId = useMemo(() => {
-    const map = {};
-    let runningWeightedPoints = 0;
-    let runningCredits = 0;
-
-    sortSemesters(progress.semesters).forEach((semester) => {
-      const modules = semester.modules || [];
-      const moduleWeighted = modules.reduce(
-        (sum, module) => sum + Number(module.gradePoints || 0) * Number(module.creditHours || 0),
-        0
-      );
-      const semesterCredits = Number(semester.totalCredits || 0);
-      const weightedPoints = moduleWeighted || Number(semester.semesterGPA || 0) * semesterCredits;
-
-      runningWeightedPoints += weightedPoints;
-      runningCredits += semesterCredits;
-
-      map[semester._id] = runningCredits > 0 ? round2(runningWeightedPoints / runningCredits) : 0;
-    });
-
-    return map;
-  }, [progress.semesters]);
-
   const filteredSummary = useMemo(() => {
     if (!searchQuery.trim()) return summaryList;
 
@@ -1000,7 +977,7 @@ export default function ProgressTracker() {
 
           <div className="space-y-4">
             {progress.semesters.map((semester) => {
-              const semesterCumulativeGPA = Number(cumulativeGpaBySemesterId[semester._id] || 0);
+              const semesterGPA = Number(semester.semesterGPA || 0);
 
               return (
               <div key={semester._id} className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
@@ -1012,8 +989,8 @@ export default function ProgressTracker() {
                     <p className="text-sm text-secondary-500 mt-1">Total Credits: {semester.totalCredits}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`badge ${semesterCumulativeGPA >= 3.5 ? "bg-success-100 text-success-600" : "bg-slate-100 text-secondary-700"}`}>
-                      Cumulative GPA {semesterCumulativeGPA.toFixed(2)}
+                    <span className={`badge ${semesterGPA >= 3.5 ? "bg-success-100 text-success-600" : "bg-slate-100 text-secondary-700"}`}>
+                      Semester GPA {semesterGPA.toFixed(2)}
                     </span>
                     <button
                       type="button"
@@ -1074,7 +1051,7 @@ export default function ProgressTracker() {
                           <td className="table-td">-</td>
                           <td className="table-td font-semibold">{semester.totalCredits}</td>
                           <td className="table-td">-</td>
-                          <td className="table-td font-semibold">Cumulative GPA {semesterCumulativeGPA.toFixed(2)}</td>
+                          <td className="table-td font-semibold">Semester GPA {semesterGPA.toFixed(2)}</td>
                         </tr>
                       </tbody>
                     </table>
