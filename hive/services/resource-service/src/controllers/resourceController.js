@@ -2,49 +2,18 @@ const { v4: uuidv4 } = require('uuid');
 const { GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const axios = require('axios');
-const Subject = require('../models/Subject');
+const Course = require('../models/Course');
 const Resource = require('../models/Resource');
 const { s3Client } = require('../middleware/uploadMiddleware');
 
 const RAG_SERVICE_URL = process.env.RAG_SERVICE_URL || 'http://localhost:8000';
 const S3_BUCKET = process.env.S3_BUCKET_NAME || 'hive-study-resources';
 
-// ═══════════════════════════════════════════════════════════════
-//  SUBJECT CONTROLLERS
-// ═══════════════════════════════════════════════════════════════
-
-// POST /resources/subjects  (admin / superadmin)
-const createSubject = async (req, res) => {
-  try {
-    const { subjectCode, subjectName, level, semester, description } = req.body;
-
-    if (!subjectCode || !subjectName || !level || !semester) {
-      return res.status(400).json({ message: 'subjectCode, subjectName, level and semester are required' });
-    }
-
-    const subject = new Subject({
-      subjectCode: subjectCode.toUpperCase(),
-      subjectName,
-      level,
-      semester,
-      description: description || '',
-      createdBy: req.user.uid,
-    });
-
-    await subject.save();
-    return res.status(201).json({ message: 'Subject created', subject });
-  } catch (err) {
-    console.error('[createSubject]', err);
-    if (err.code === 11000) return res.status(400).json({ message: 'Subject code already exists' });
-    return res.status(500).json({ message: 'Server error' });
-  }
-};
-
 // GET /resources/subjects  (all authenticated)
 const getAllSubjects = async (req, res) => {
   try {
-    const subjects = await Subject.find({ isActive: true }).sort({ level: 1, semester: 1, subjectCode: 1 });
-    return res.json({ count: subjects.length, subjects });
+    const courses = await Course.find({ isActive: true }).sort({ level: 1, semester: 1, subjectCode: 1 });
+    return res.json({ count: courses.length, courses });
   } catch (err) {
     console.error('[getAllSubjects]', err);
     return res.status(500).json({ message: 'Server error' });
@@ -54,60 +23,20 @@ const getAllSubjects = async (req, res) => {
 // GET /resources/subjects/:subjectCode  (all authenticated)
 const getSubjectById = async (req, res) => {
   try {
-    const subject = await Subject.findOne({ subjectCode: req.params.subjectCode.toUpperCase(), isActive: true });
-    if (!subject) return res.status(404).json({ message: 'Subject not found' });
+    const course = await Course.findOne({ subjectCode: req.params.subjectCode.toUpperCase(), isActive: true });
+    if (!course) return res.status(404).json({ message: 'Course not found' });
 
     // Attach resources grouped by type
-    const resources = await Resource.find({ subjectCode: subject.subjectCode, isActive: true }).select('-__v');
+    const resources = await Resource.find({ subjectCode: course.subjectCode, isActive: true }).select('-__v');
     const grouped = {
       past_papers: resources.filter(r => r.resourceType === 'past_paper'),
       resource_books: resources.filter(r => r.resourceType === 'resource_book'),
       notes: resources.filter(r => r.resourceType === 'note'),
     };
 
-    return res.json({ subject, resources: grouped });
+    return res.json({ course, resources: grouped });
   } catch (err) {
     console.error('[getSubjectById]', err);
-    return res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// PUT /resources/subjects/:subjectCode  (admin / superadmin)
-const updateSubject = async (req, res) => {
-  try {
-    const { subjectName, level, semester, description } = req.body;
-
-    const subject = await Subject.findOne({ subjectCode: req.params.subjectCode.toUpperCase() });
-    if (!subject) return res.status(404).json({ message: 'Subject not found' });
-
-    if (subjectName) subject.subjectName = subjectName;
-    if (level) subject.level = level;
-    if (semester) subject.semester = semester;
-    if (description !== undefined) subject.description = description;
-
-    await subject.save();
-    return res.json({ message: 'Subject updated', subject });
-  } catch (err) {
-    console.error('[updateSubject]', err);
-    return res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// DELETE /resources/subjects/:subjectCode  (superadmin — soft delete)
-const deleteSubject = async (req, res) => {
-  try {
-    const subject = await Subject.findOne({ subjectCode: req.params.subjectCode.toUpperCase() });
-    if (!subject) return res.status(404).json({ message: 'Subject not found' });
-
-    subject.isActive = false;
-    await subject.save();
-
-    // Also soft-delete all resources belonging to this subject
-    await Resource.updateMany({ subjectCode: subject.subjectCode }, { isActive: false });
-
-    return res.json({ message: 'Subject and its resources soft-deleted', subjectCode: subject.subjectCode });
-  } catch (err) {
-    console.error('[deleteSubject]', err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
@@ -128,15 +57,15 @@ const uploadResource = async (req, res) => {
       return res.status(400).json({ message: 'subjectCode, resourceType and title are required' });
     }
 
-    // Verify subject exists
-    const subject = await Subject.findOne({ subjectCode: subjectCode.toUpperCase(), isActive: true });
-    if (!subject) return res.status(404).json({ message: `Subject ${subjectCode} not found` });
+    // Verify course exists
+    const course = await Course.findOne({ subjectCode: subjectCode.toUpperCase(), isActive: true });
+    if (!course) return res.status(404).json({ message: `Course ${subjectCode} not found` });
 
     // Build resource document
     const resource = new Resource({
       resourceId: uuidv4(),
-      subjectCode: subject.subjectCode,
-      subjectName: subject.subjectName,
+      subjectCode: course.subjectCode,
+      subjectName: course.subjectName,
       resourceType,
       title,
       fileName: req.file.originalname,
@@ -193,8 +122,8 @@ const uploadResource = async (req, res) => {
 const getResourcesBySubject = async (req, res) => {
   try {
     const subjectCode = req.params.subjectCode.toUpperCase();
-    const subject = await Subject.findOne({ subjectCode, isActive: true });
-    if (!subject) return res.status(404).json({ message: 'Subject not found' });
+    const course = await Course.findOne({ subjectCode, isActive: true });
+    if (!course) return res.status(404).json({ message: 'Course not found' });
 
     const resources = await Resource.find({ subjectCode, isActive: true })
       .select('-__v -s3Key')
@@ -208,7 +137,7 @@ const getResourcesBySubject = async (req, res) => {
     };
 
     return res.json({
-      subject,
+      course,
       totalResources: resources.length,
       resources: grouped,
     });
@@ -351,12 +280,9 @@ const getResourceStats = async (req, res) => {
 };
 
 module.exports = {
-  // Subjects
-  createSubject,
+  // Courses
   getAllSubjects,
   getSubjectById,
-  updateSubject,
-  deleteSubject,
   // Resources
   uploadResource,
   getResourcesBySubject,
