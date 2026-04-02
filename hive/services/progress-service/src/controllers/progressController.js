@@ -23,9 +23,9 @@ const normalizeCode = (value = '') => String(value).trim().toUpperCase();
 
 const enrichModulesWithCourses = async (modules = []) => {
   const requestedCodes = [...new Set(modules.map((module) => normalizeCode(module.moduleCode)).filter(Boolean))];
-  const matchedCourses = await Course.find({ courseCode: { $in: requestedCodes }, isActive: true }).lean();
+  const matchedCourses = await Course.find({ subjectCode: { $in: requestedCodes }, isActive: true }).lean();
 
-  const byCode = new Map(matchedCourses.map((course) => [normalizeCode(course.courseCode), course]));
+  const byCode = new Map(matchedCourses.map((course) => [normalizeCode(course.subjectCode), course]));
 
   const invalidCodes = requestedCodes.filter((code) => !byCode.has(code));
   if (invalidCodes.length > 0) {
@@ -35,12 +35,12 @@ const enrichModulesWithCourses = async (modules = []) => {
   }
 
   return modules.map((module) => {
-    const courseCode = normalizeCode(module.moduleCode);
-    const course = byCode.get(courseCode);
+    const subjectCode = normalizeCode(module.moduleCode);
+    const course = byCode.get(subjectCode);
 
     return {
-      moduleCode: course.courseCode,
-      moduleName: course.courseName,
+      moduleCode: course.subjectCode,
+      moduleName: course.subjectName,
       creditHours: Number(course.creditHours),
       grade: module.grade,
     };
