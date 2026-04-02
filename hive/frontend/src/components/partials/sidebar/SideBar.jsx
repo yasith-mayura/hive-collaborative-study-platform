@@ -115,6 +115,12 @@ const navItems = [
     path: "/superadmin/courses",
     allowed: ["superadmin"],
   },
+  {
+    icon: "chart-bar",
+    name: "Batch Level Assignment",
+    path: "/superadmin/batch-levels",
+    allowed: ["superadmin"],
+  },
 ];
 
 const AppSidebar = () => {
