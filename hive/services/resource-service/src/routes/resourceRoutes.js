@@ -5,11 +5,8 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
 const { uploadSingle } = require('../middleware/uploadMiddleware');
 const {
-  createSubject,
   getAllSubjects,
   getSubjectById,
-  updateSubject,
-  deleteSubject,
   uploadResource,
   getResourcesBySubject,
   getResourceById,
@@ -19,9 +16,6 @@ const {
 } = require('../controllers/resourceController');
 
 // ── Subject routes ──────────────────────────────────────────────────────────
-
-// POST   /resources/subjects            → admin / superadmin
-router.post('/subjects', authMiddleware, requireRole('admin', 'superadmin'), createSubject);
 
 // GET    /resources/subjects            → all authenticated
 router.get('/subjects', authMiddleware, getAllSubjects);
@@ -34,12 +28,6 @@ router.get('/stats', authMiddleware, requireRole('admin', 'superadmin'), getReso
 
 // GET    /resources/subjects/:subjectCode → all authenticated
 router.get('/subjects/:subjectCode', authMiddleware, getSubjectById);
-
-// PUT    /resources/subjects/:subjectCode → admin / superadmin
-router.put('/subjects/:subjectCode', authMiddleware, requireRole('admin', 'superadmin'), updateSubject);
-
-// DELETE /resources/subjects/:subjectCode → superadmin only
-router.delete('/subjects/:subjectCode', authMiddleware, requireRole('superadmin'), deleteSubject);
 
 // ── Resource routes ─────────────────────────────────────────────────────────
 
