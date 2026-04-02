@@ -1,42 +1,14 @@
 import instance from "../lib/axios";
 
-export const createSubject = async (subjectData) => {
-  const response = await instance.resourceService.post("/resources/subjects", subjectData, {
-    headers: instance.defaultHeaders(),
-  });
-  return response.data;
-};
-
-export const getAllSubjects = async () => {
+export const getAllCourses = async () => {
   const response = await instance.resourceService.get("/resources/subjects", {
     headers: instance.defaultHeaders(),
   });
   return response.data;
 };
 
-export const getSubjectByCode = async (subjectCode) => {
+export const getCourseByCode = async (subjectCode) => {
   const response = await instance.resourceService.get(
-    `/resources/subjects/${encodeURIComponent(subjectCode)}`,
-    {
-      headers: instance.defaultHeaders(),
-    }
-  );
-  return response.data;
-};
-
-export const updateSubject = async (subjectCode, payload) => {
-  const response = await instance.resourceService.put(
-    `/resources/subjects/${encodeURIComponent(subjectCode)}`,
-    payload,
-    {
-      headers: instance.defaultHeaders(),
-    }
-  );
-  return response.data;
-};
-
-export const deleteSubject = async (subjectCode) => {
-  const response = await instance.resourceService.delete(
     `/resources/subjects/${encodeURIComponent(subjectCode)}`,
     {
       headers: instance.defaultHeaders(),
