@@ -212,6 +212,38 @@ export const updateAdmin = async (
   return response.data;
 };
 
+export const getBatchLevels = async () => {
+  const response = await instance.userService.get(`/api/batch-levels`, {
+    headers: instance.defaultHeaders(),
+  });
+  return response.data;
+};
+
+export const getBatchLevelBatches = async () => {
+  const response = await instance.userService.get(`/api/batch-levels/batches`, {
+    headers: instance.defaultHeaders(),
+  });
+  return response.data;
+};
+
+export const assignBatchLevel = async ({ batch, level, confirmReplace = false }) => {
+  const response = await instance.userService.post(
+    `/api/batch-levels`,
+    { batch, level, confirmReplace },
+    {
+      headers: instance.defaultHeaders(),
+    }
+  );
+  return response.data;
+};
+
+export const removeBatchLevel = async (batch) => {
+  const response = await instance.userService.delete(`/api/batch-levels/${encodeURIComponent(batch)}`, {
+    headers: instance.defaultHeaders(),
+  });
+  return response.data;
+};
+
 //User Service APIs end
 
 
@@ -222,21 +254,16 @@ export const updateAdmin = async (
 
 
 
-export const createSubject = async (subjectData) => {
-  const response = await instance.resourceService.post(`/resources/subjects`, subjectData, {
-    headers: instance.defaultHeaders()
-  });
-  return response.data;
-};
-
-export const getAllSubjects = async () => {
+export const getAllCourses = async () => {
   const response = await instance.resourceService.get(`/resources/subjects`, {
     headers: instance.defaultHeaders()
   });
   return response.data;
 };
 
-export const getSubjectResources = async (subjectId) => {
+export const getAllSubjects = getAllCourses;
+
+export const getCourseResources = async (subjectId) => {
   const response = await instance.resourceService.get(`/resources/subjects/${encodeURIComponent(subjectId)}`, {
     headers: instance.defaultHeaders()
   });
