@@ -12,9 +12,9 @@ import {
 const TRACKS = ["Net", "Mobile", "Data", "Health", "Gaming", "Business"];
 
 const initialForm = {
-  courseCode: "",
-  courseName: "",
-  year: "",
+  subjectCode: "",
+  subjectName: "",
+  level: "",
   semester: "",
   status: "compulsory",
   specialisationTrack: "",
@@ -79,9 +79,9 @@ export default function CourseManagement() {
     return courses.filter((course) => {
       const matchesQuery =
         !query ||
-        course.courseCode?.toLowerCase().includes(query) ||
-        course.courseName?.toLowerCase().includes(query);
-      const matchesYear = yearFilter === "all" || Number(course.year) === Number(yearFilter);
+        course.subjectCode?.toLowerCase().includes(query) ||
+        course.subjectName?.toLowerCase().includes(query);
+      const matchesYear = yearFilter === "all" || Number(course.level) === Number(yearFilter);
       const matchesSemester =
         semesterFilter === "all" || Number(course.semester) === Number(semesterFilter);
       const matchesStatus = statusFilter === "all" || course.status === statusFilter;
@@ -93,10 +93,10 @@ export default function CourseManagement() {
     const grouped = new Map();
 
     filteredCourses.forEach((course) => {
-      const key = `Y${course.year}S${course.semester}`;
+      const key = `Y${course.level}S${course.semester}`;
       if (!grouped.has(key)) {
         grouped.set(key, {
-          year: course.year,
+          year: course.level,
           semester: course.semester,
           courses: [],
         });
@@ -123,9 +123,9 @@ export default function CourseManagement() {
   const openEditModal = (course) => {
     setSelectedCourse(course);
     setFormData({
-      courseCode: course.courseCode,
-      courseName: course.courseName,
-      year: course.year,
+      subjectCode: course.subjectCode,
+      subjectName: course.subjectName,
+      level: course.level,
       semester: course.semester,
       status: course.status,
       specialisationTrack: course.specialisationTrack || "",
@@ -147,16 +147,17 @@ export default function CourseManagement() {
 
   const upsertCourse = async (isEdit) => {
     const payload = {
-      courseCode: normalizeCode(formData.courseCode),
-      courseName: formData.courseName.trim(),
-      year: Number(formData.year),
+      subjectCode: normalizeCode(formData.subjectCode),
+      subjectName: formData.subjectName.trim(),
+      level: Number(formData.level),
       semester: Number(formData.semester),
+      creditHours: extractCreditsFromCode(formData.subjectCode),
       status: formData.status,
       specialisationTrack:
         formData.status === "specialisation" ? formData.specialisationTrack || null : null,
     };
 
-    if (!payload.courseCode || !payload.courseName || !payload.year || !payload.semester) {
+    if (!payload.subjectCode || !payload.subjectName || !payload.level || !payload.semester) {
       Notification.error("All required fields must be filled.");
       return;
     }
@@ -168,8 +169,8 @@ export default function CourseManagement() {
 
     try {
       setSaving(true);
-      if (isEdit && selectedCourse?.courseCode) {
-        await updateCourse(selectedCourse.courseCode, payload);
+      if (isEdit && selectedCourse?.subjectCode) {
+        await updateCourse(selectedCourse.subjectCode, payload);
         Notification.success("Course updated successfully");
       } else {
         await createCourse(payload);
@@ -185,11 +186,11 @@ export default function CourseManagement() {
   };
 
   const onDeleteCourse = async () => {
-    if (!selectedCourse?.courseCode) return;
+    if (!selectedCourse?.subjectCode) return;
 
     try {
       setSaving(true);
-      await deleteCourse(selectedCourse.courseCode);
+      await deleteCourse(selectedCourse.subjectCode);
       Notification.success("Course deleted successfully");
       closeModals();
       loadCourses();
@@ -201,7 +202,7 @@ export default function CourseManagement() {
   };
 
   const renderForm = (isEdit) => {
-    const extractedCredits = extractCreditsFromCode(formData.courseCode);
+    const extractedCredits = extractCreditsFromCode(formData.subjectCode);
 
     return (
       <div className="space-y-4">
@@ -211,8 +212,8 @@ export default function CourseManagement() {
             <input
               type="text"
               className="form-control"
-              value={formData.courseCode}
-              onChange={(e) => setFormData((prev) => ({ ...prev, courseCode: e.target.value }))}
+              value={formData.subjectCode}
+              onChange={(e) => setFormData((prev) => ({ ...prev, subjectCode: e.target.value }))}
               readOnly={isEdit}
             />
             <p className="text-xs text-secondary-500 mt-1">
@@ -224,18 +225,18 @@ export default function CourseManagement() {
             <input
               type="text"
               className="form-control"
-              value={formData.courseName}
-              onChange={(e) => setFormData((prev) => ({ ...prev, courseName: e.target.value }))}
+              value={formData.subjectName}
+              onChange={(e) => setFormData((prev) => ({ ...prev, subjectName: e.target.value }))}
             />
           </div>
           <div className="fromGroup">
-            <label className="form-label">Year</label>
+            <label className="form-label">Level</label>
             <select
               className="form-control"
-              value={formData.year}
-              onChange={(e) => setFormData((prev) => ({ ...prev, year: Number(e.target.value) }))}
+              value={formData.level}
+              onChange={(e) => setFormData((prev) => ({ ...prev, level: Number(e.target.value) }))}
             >
-              <option value="">Select Year</option>
+              <option value="">Select Level</option>
               <option value={1}>1</option>
               <option value={2}>2</option>
               <option value={3}>3</option>
@@ -303,6 +304,10 @@ export default function CourseManagement() {
         <Button text="Add New Course" className="btn-primary btn-sm" onClick={openAddModal} />
       </div>
 
+      <div className="bg-primary-50 border border-primary-200 rounded-xl px-4 py-3 text-sm text-primary-900">
+        Courses added here are used across Progress Tracking and Resource Management.
+      </div>
+
       <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm grid grid-cols-1 md:grid-cols-4 gap-3">
         <input
           type="text"
@@ -316,11 +321,11 @@ export default function CourseManagement() {
           value={yearFilter}
           onChange={(e) => setYearFilter(e.target.value)}
         >
-          <option value="all">All Years</option>
-          <option value="1">Year 1</option>
-          <option value="2">Year 2</option>
-          <option value="3">Year 3</option>
-          <option value="4">Year 4</option>
+          <option value="all">All Levels</option>
+          <option value="1">Level 1</option>
+          <option value="2">Level 2</option>
+          <option value="3">Level 3</option>
+          <option value="4">Level 4</option>
         </select>
         <select
           className="form-control"
@@ -356,7 +361,7 @@ export default function CourseManagement() {
           {groupedCourses.map((group) => (
             <div key={`Y${group.year}S${group.semester}`} className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
               <h2 className="text-base font-semibold text-secondary-800 mb-3">
-                Year {group.year} - Semester {group.semester}
+                Level {group.year} - Semester {group.semester}
               </h2>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-100 table-fixed">
@@ -372,9 +377,9 @@ export default function CourseManagement() {
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-100">
                     {group.courses.map((course) => (
-                      <tr key={course.courseCode}>
-                        <td className="table-td">{course.courseCode}</td>
-                        <td className="table-td">{course.courseName}</td>
+                      <tr key={course.subjectCode}>
+                        <td className="table-td">{course.subjectCode}</td>
+                        <td className="table-td">{course.subjectName}</td>
                         <td className="table-td">{course.creditHours}</td>
                         <td className="table-td capitalize">{course.status}</td>
                         <td className="table-td">{course.specialisationTrack || "-"}</td>
@@ -468,7 +473,7 @@ export default function CourseManagement() {
       >
         <div className="space-y-2">
           <p className="text-sm text-secondary-700">
-            Are you sure you want to delete {selectedCourse?.courseName || "this course"}?
+            Are you sure you want to delete {selectedCourse?.subjectName || "this course"}?
           </p>
           <p className="text-sm text-warning-700">
             This will hide the course from students when adding results. Existing results will not
