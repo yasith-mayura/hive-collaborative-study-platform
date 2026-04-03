@@ -7,13 +7,15 @@ import { getFlashCardDecks,
   deleteFlashCardDeck, } from "@/services";
 
 
-// Card color themes — assigned per card automatically
+// Card color themes — assigned per card automatically (light pastel colors)
 const CARD_COLORS = [
-  { front: "#0F766E", back: "#115E59", text: "#FFFFFF", accent: "#5EEAD4" },
-  { front: "#4338CA", back: "#3730A3", text: "#FFFFFF", accent: "#A5B4FC" },
-  { front: "#BE123C", back: "#9F1239", text: "#FFFFFF", accent: "#FDA4AF" },
-  { front: "#B45309", back: "#92400E", text: "#FFFFFF", accent: "#FCD34D" },
-  { front: "#047857", back: "#065F46", text: "#FFFFFF", accent: "#6EE7B7" },
+  { front: "#FFF4CC", back: "#FFCC00", text: "#4D3D00", accent: "#4D3D00" },
+  { front: "#EAF9EE", back: "#50C793", text: "#205D3A", accent: "#205D3A" },
+  { front: "#EAF8FF", back: "#0CE7FA", text: "#0D4B66", accent: "#0D4B66" },
+  { front: "#FFEFF4", back: "#F68B8D", text: "#7A3650", accent: "#7A3650" },
+  { front: "#F1F4F7", back: "#A0A4A7", text: "#475569", accent: "#475569" },
+  { front: "#F4EEFF", back: "#BDA3FF", text: "#50337A", accent: "#50337A" },
+  { front: "#FFF1E8", back: "#FA916B", text: "#7E4520", accent: "#7E4520" },
 ];
 
 const getCardColor = (index) => CARD_COLORS[index % CARD_COLORS.length];
@@ -595,7 +597,7 @@ export default function FlashCards() {
                   <div
                     className="absolute inset-0 [backface-visibility:hidden] rounded-2xl p-6 sm:p-10 flex flex-col justify-between shadow-2xl transition-shadow group-hover:shadow-primary-200 border border-white/20"
                     style={{ 
-                      background: `linear-gradient(135deg, ${getCardColor(currentCardIndex).front}, ${getCardColor(currentCardIndex).back})`,
+                      backgroundColor: getCardColor(currentCardIndex).front,
                     }}
                   >
                     {/* Mark indicator badge */}
@@ -607,7 +609,7 @@ export default function FlashCards() {
                       </div>
                     )}
                     <div className="space-y-2">
-                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Question</span>
+                      <span className="text-[10px] font-bold text-black/60 uppercase tracking-widest">Question</span>
                       <p style={{ color: getCardColor(currentCardIndex).text }} className="text-base sm:text-xl font-medium leading-relaxed">
                         {currentCard.question}
                       </p>
