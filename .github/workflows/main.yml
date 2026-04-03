@@ -34,14 +34,17 @@ jobs:
 
       # Step 4: Build all CI images
       - name: Build CI images
+        working-directory: hive
         run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml build
 
       # Step 5: Start CI services
       - name: Start CI services
+        working-directory: hive
         run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml up -d
 
       # Step 6: Wait for all services healthy
       - name: Wait for services
+        working-directory: hive
         run: |
           echo "Waiting for all services to be healthy..."
           for i in {1..30}; do
@@ -60,6 +63,7 @@ jobs:
 
       # Step 7: Run backend tests in parallel
       - name: Run backend tests
+        working-directory: hive
         run: |
           echo "Running backend tests..."
           services=(auth-service user-service resource-service chat-service note-service progress-service session-service rag-service)
@@ -71,11 +75,13 @@ jobs:
 
       # Step 8: Run frontend E2E tests
       - name: Run frontend E2E tests
+        working-directory: hive
         run: |
           docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T frontend npm install
           docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T frontend npx cypress run
 
       # Step 9: Tear down CI services
       - name: Tear down CI
+        working-directory: hive
         if: always()
         run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml down --volumes
