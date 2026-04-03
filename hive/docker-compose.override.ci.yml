@@ -3,45 +3,36 @@ version: "3.8"
 services:
   auth-service:
     build:
-      target: ci
     ports: []
 
   user-service:
     build:
-      target: ci
     ports: []
 
   resource-service:
     build:
-      target: ci
     ports: []
 
   chat-service:
     build:
-      target: ci
     ports: []
 
   note-service:
     build:
-      target: ci
     ports: []
 
   progress-service:
     build:
-      target: ci
     ports: []
 
   session-service:
     build:
-      target: ci
     ports: []
 
   rag-service:
     build:
-      target: ci
     ports: []
 
   frontend:
     build:
-      target: ci
     ports: []
