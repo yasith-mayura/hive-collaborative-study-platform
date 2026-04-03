@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Modal from "@/components/ui/modal";
+import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Textinput from "@/components/ui/Textinput";
 import Notification from "@/components/ui/Notification";

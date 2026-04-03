@@ -1,48 +1,46 @@
 version: "3.8"
 services:
-  mongo:
-    image: mongo:6
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 40s
+  # mongo:
+  #   image: mongo:6
+  #   restart: unless-stopped
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongo-data:/data/db
+  #   healthcheck:
+  #     test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 40s
 
-  api-gateway:
-    build: ./services/api-gateway
-    env_file: .env
-    environment:
-      - PORT=4000
-    ports:
-      - "4000:4000"
-    depends_on:
-      mongo:
-        condition: service_healthy
-    restart: on-failure
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+  # api-gateway:
+  #   build: ./services/api-gateway
+  #   env_file: .env
+  #   environment:
+  #     - PORT=4000
+  #   ports:
+  #     - "4000:4000"
+  #   depends_on:
+  #     mongo:
+  #       condition: service_healthy
+  #   restart: on-failure
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 30s
 
   auth-service:
     build: ./services/auth-service
     env_file: .env
     environment:
       - PORT=3000
-    ports:
-      - "3000:3000"
-    depends_on:
-      mongo:
-        condition: service_healthy
-    restart: on-failure
+    # ports:
+    #   - "3000:3000"
+    networks:
+      local:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 10s
@@ -55,11 +53,11 @@ services:
     env_file: .env
     environment:
       - PORT=3001
-    ports:
-      - "3001:3001"
-    depends_on:
-      mongo:
-        condition: service_healthy
+    # ports:
+    #   - "3001:3001"
+    networks:
+      local:
+
     restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
@@ -73,15 +71,15 @@ services:
     env_file: .env
     environment:
       - PORT=3002
-      - MONGO_URI=mongodb://mongo:27017/hive
+      # - MONGO_URI=mongodb://mongo:27017/hive
       - RAG_SERVICE_URL=http://rag-service:8000
       # AWS credentials are read from .env via env_file above
       # S3_BUCKET_NAME, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
     ports:
       - "3002:3002"
+    networks:
+      local:
     depends_on:
-      mongo:
-        condition: service_healthy
       rag-service:
         condition: service_healthy
     restart: on-failure
@@ -99,9 +97,8 @@ services:
       - PORT=3003
     ports:
       - "3003:3003"
-    depends_on:
-      mongo:
-        condition: service_healthy
+    networks:
+      local:
     restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
@@ -118,7 +115,7 @@ services:
     ports:
       - "3004:3004"
     depends_on:
-      mongo:
+      frontend:
         condition: service_healthy
     restart: on-failure
     healthcheck:
@@ -136,7 +133,7 @@ services:
     ports:
       - "3005:3005"
     depends_on:
-      mongo:
+      frontend:
         condition: service_healthy
     restart: on-failure
     healthcheck:
@@ -153,9 +150,8 @@ services:
       - PORT=3006
     ports:
       - "3006:3006"
-    depends_on:
-      mongo:
-        condition: service_healthy
+    networks:
+      local:
     restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
@@ -180,19 +176,46 @@ services:
       start_period: 30s
 
   frontend:
+    # profiles:
+    #   - current
     build: ./frontend
     env_file: .env
-    environment:
-      - PORT=5173
+    # environment:
+      # - PORT=5173
     ports:
-      - "5173:5173"
+      - "80:80"
+    networks:
+      local:
+    depends_on:
+      user-service:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      resource-service:
+        condition: service_healthy
+      session-service:
+        condition: service_healthy
+      chat-service:
+        condition: service_healthy
     restart: on-failure
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
 
-volumes:
-  mongo-data:
+# volumes:
+#   mongo-data:
+
+networks:
+  # Connects all commons serices (Certbot, Nginx, pgAdmin, Chatbot and Django).
+  local:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-local
+    ipam:
+      config:
+        - subnet: '172.31.206.0/25'
+          gateway: '172.31.206.1'
+

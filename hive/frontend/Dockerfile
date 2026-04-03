@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:20-alpine AS builder
 RUN apk add --no-cache curl
 WORKDIR /app
 COPY package*.json ./
@@ -8,5 +8,17 @@ RUN npm config set fetch-retry-mintimeout 20000 && \
     npm config set strict-ssl false && \
     npm ci --force --network-concurrency 1
 COPY . .
-EXPOSE 5173
-CMD ["npm", "run", "dev"]
+RUN npm run build
+
+# ====================== Production Stage ======================
+FROM nginx:stable-alpine
+
+# Copy built files to nginx default directory
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Optional: Copy custom nginx config for SPA routing + best practices
+COPY nginx-proxy.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

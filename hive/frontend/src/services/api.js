@@ -415,3 +415,442 @@ export const deleteSession = async (id) => {
 };
 
 //Session Service APIs end
+
+
+
+
+
+
+
+
+
+// --------------------- prod ready ----------------------------
+
+
+
+
+
+
+
+
+
+
+
+// // import axios from "axios";
+// import instance from "../lib/axios";
+
+// export const verifyToken = async () => {
+//   const response = await instance.authService.post(
+//     `/auth/verify`,
+//     {},
+//     {
+//       headers: instance.defaultHeaders()
+//     },
+//   );
+
+//   return response.data;
+// };
+
+// export const logoutSession = async () => {
+//   const response = await instance.authService.post(
+//     `/logout`,
+//     {},
+//     {
+//       headers: instance.defaultHeaders()
+//     },
+//   );
+
+//   return response.data;
+// };
+
+// //Auth Service APIs end
+
+// //User Service APIs begin
+
+
+// //--------------Users------------------
+// export const registerUser = async ({
+//   name,
+//   email,
+//   password,
+//   studentNumber,
+// }) => {
+//   const response = await instance.userService.post(`/users/register`, {
+//     name,
+//     email,
+//     password,
+//     studentNumber,
+//   });
+
+//   return response.data;
+// };
+
+// export const getAllUsers = async () => {
+//   const response = await instance.userService.get(`/users`, {
+//     headers: instance.defaultHeaders()
+//   });
+//   return response.data;
+// };
+
+// export const getAllStudents = async () => {
+//   const response = await instance.userService.get(`/students`, {
+//     headers: instance.defaultHeaders()
+//   });
+//   return response.data;
+// };
+
+// export const getUserByStudentNumber = async (studentNumber) => {
+//   const response = await instance.userService.get(
+//     `/users/${encodeURIComponent(studentNumber)}`,
+//     {
+//       headers: instance.defaultHeaders()
+//     },
+//   );
+//   return response.data;
+// };
+
+// export const getMyProfile = async () => {
+//   const response = await instance.userService.get(`/users/me`, {
+//     headers: instance.defaultHeaders(),
+//   });
+//   return response.data;
+// };
+
+// export const updateMyProfile = async ({ name, password }) => {
+//   const response = await instance.userService.put(
+//     `/users/me`,
+//     {
+//       name,
+//       password,
+//     },
+//     {
+//       headers: instance.defaultHeaders(),
+//     }
+//   );
+//   return response.data;
+// };
+
+// export const createUser = async ({ name, email, password, studentNumber }) => {
+//   const response = await instance.userService.post(
+//     `/users`,
+//     {
+//       name,
+//       email,
+//       password,
+//       studentNumber,
+//     },
+//     {
+//       headers: instance.defaultHeaders()
+//     },
+//   );
+//   return response.data;
+// };
+
+// export const deleteUser = async (studentNumber) => {
+//   const response = await instance.userService.delete(
+//     `/users/${encodeURIComponent(studentNumber)}`,
+//     {
+//       headers: instance.defaultHeaders()
+//     },
+//   );
+//   return response.data;
+// };
+
+// export const updateUser = async (
+//   studentNumber,
+//   { name, email, studentNumber: nextStudentNumber }
+// ) => {
+//   const response = await instance.userService.put(
+//     `/users/${encodeURIComponent(studentNumber)}`,
+//     {
+//       name,
+//       email,
+//       studentNumber: nextStudentNumber,
+//     },
+//     {
+//       headers: instance.defaultHeaders(),
+//     },
+//   );
+//   return response.data;
+// };
+
+
+// //--------------Admins------------------
+
+// export const getAllAdmins = async () => {
+//   const response = await instance.userService.get(`/admins`, {
+//     headers: instance.defaultHeaders()
+//   });
+//   return response.data;
+// }
+
+// export const createAdmin = async ({ name, email, password, studentNumber }) => {
+//   const response = await instance.userService.post(
+//     `/admins`,
+//     {
+//       name,
+//       email,
+//       password,
+//       studentNumber,
+//     },
+//     {
+//       headers: instance.defaultHeaders()
+//     },
+//   );
+//   return response.data;
+// };
+
+// export const promoteUserToAdmin = async (studentNumber) => {
+//   const response = await instance.userService.post(
+//     `/admins/promote/${encodeURIComponent(studentNumber)}`,
+//     {},
+//     {
+//       headers: instance.defaultHeaders()
+//     },
+//   );
+//   return response.data;
+// };
+
+// export const deleteAdmin = async (studentNumber) => {
+//   const response = await instance.userService.delete(
+//     `/admins/${encodeURIComponent(studentNumber)}`,
+//     {
+//       headers: instance.defaultHeaders()
+//     },
+//   );
+//   return response.data;
+// };
+
+// export const updateAdmin = async (
+//   studentNumber,
+//   { name, email, studentNumber: nextStudentNumber }
+// ) => {
+//   const response = await instance.userService.put(
+//     `/admins/${encodeURIComponent(studentNumber)}`,
+//     {
+//       name,
+//       email,
+//       studentNumber: nextStudentNumber,
+//     },
+//     {
+//       headers: instance.defaultHeaders(),
+//     },
+//   );
+//   return response.data;
+// };
+
+// //User Service APIs end
+
+
+// //Resource Service APIs begin
+
+// //--------------Resources------------------
+
+
+
+
+// export const createSubject = async (subjectData) => {
+//   const response = await instance.resourceService.post(`/resources/subjects`, subjectData, {
+//     headers: instance.defaultHeaders()
+//   });
+//   return response.data;
+// };
+
+// export const getAllSubjects = async () => {
+//   const response = await instance.resourceService.get(`/resources/subjects`, {
+//     headers: instance.defaultHeaders()
+//   });
+//   return response.data;
+// };
+
+// export const getSubjectResources = async (subjectId) => {
+//   const response = await instance.resourceService.get(`/resources/subjects/${encodeURIComponent(subjectId)}`, {
+//     headers: instance.defaultHeaders()
+//   });
+//   return response.data;
+// };
+
+// export const uploadResource = async (formData) => {
+//   // formData because we use multipart/form-data for file uploads
+//   const headers = instance.defaultHeaders();
+//   delete headers["Content-Type"]; // Axios will set multipart/form-data with boundary
+
+//   const response = await instance.resourceService.post(`/resources/upload`, formData, {
+//     headers: headers
+//   });
+//   return response.data;
+// };
+
+// //Resource Service APIs end
+
+// //Chat Service APIs begin
+
+// //--------------Chat------------------
+
+// export const getBatchChatHistory = async (batch) => {
+//   const response = await instance.chatService.get(
+//     `/chat/history/${encodeURIComponent(batch)}`,
+//     {
+//       headers: instance.defaultHeaders(),
+//     }
+//   );
+//   return response.data;
+// };
+
+
+
+// //Chat Service APIs end
+
+// //Note Service APIs begin
+
+// //--------------Notes------------------
+
+
+
+
+// //Note Service APIs end
+
+// //Progress Service APIs begin
+
+// //--------------Progress------------------
+
+
+
+
+// //Progress Service APIs end
+
+// //Session Service APIs begin
+
+// //--------------Sessions------------------
+
+// const isNotFoundError = (error) => {
+//   return error?.response?.status === 404;
+// };
+
+// const sessionGetWithFallback = async (primaryPath, legacyPath) => {
+//   try {
+//     const response = await instance.sessionService.get(primaryPath, {
+//       headers: instance.defaultHeaders()
+//     });
+//     return response.data;
+//   } catch (error) {
+//     if (!isNotFoundError(error)) {
+//       throw error;
+//     }
+
+//     const fallbackResponse = await instance.sessionService.get(legacyPath, {
+//       headers: instance.defaultHeaders()
+//     });
+//     return fallbackResponse.data;
+//   }
+// };
+
+// const sessionPostWithFallback = async (primaryPath, legacyPath, payload) => {
+//   try {
+//     const response = await instance.sessionService.post(primaryPath, payload, {
+//       headers: instance.defaultHeaders()
+//     });
+//     return response.data;
+//   } catch (error) {
+//     if (!isNotFoundError(error)) {
+//       throw error;
+//     }
+
+//     const fallbackResponse = await instance.sessionService.post(legacyPath, payload, {
+//       headers: instance.defaultHeaders()
+//     });
+//     return fallbackResponse.data;
+//   }
+// };
+
+// const sessionPutWithFallback = async (primaryPath, legacyPath, payload) => {
+//   try {
+//     const response = await instance.sessionService.put(primaryPath, payload, {
+//       headers: instance.defaultHeaders()
+//     });
+//     return response.data;
+//   } catch (error) {
+//     if (!isNotFoundError(error)) {
+//       throw error;
+//     }
+
+//     const fallbackResponse = await instance.sessionService.put(legacyPath, payload, {
+//       headers: instance.defaultHeaders()
+//     });
+//     return fallbackResponse.data;
+//   }
+// };
+
+// const sessionDeleteWithFallback = async (primaryPath, legacyPath) => {
+//   try {
+//     const response = await instance.sessionService.delete(primaryPath, {
+//       headers: instance.defaultHeaders()
+//     });
+//     return response.data;
+//   } catch (error) {
+//     if (!isNotFoundError(error)) {
+//       throw error;
+//     }
+
+//     const fallbackResponse = await instance.sessionService.delete(legacyPath, {
+//       headers: instance.defaultHeaders()
+//     });
+//     return fallbackResponse.data;
+//   }
+// };
+
+// export const getAllSessions = async () => {
+//   return sessionGetWithFallback(`/sessions`, `/studysession`);
+// };
+
+// export const getCurrentMonthSessions = async () => {
+//   return sessionGetWithFallback(`/sessions/current-month`, `/studysession/current-month`);
+// }
+
+// export const getNextMonthSessions = async () => {
+//   return sessionGetWithFallback(`/sessions/next-month`, `/studysession/next-month`);
+// }
+
+// export const getSessionsByMonth = async (month, year) => {
+//   const query = year ? `?year=${encodeURIComponent(year)}` : "";
+//   return sessionGetWithFallback(
+//     `/sessions/month/${month}${query}`,
+//     `/studysession/month/${month}`
+//   );
+// }
+
+// export const getSessionById = async (id) => {
+//   return sessionGetWithFallback(`/sessions/${id}`, `/studysession/${id}`);
+// };
+
+// //--------------Admin-only Session APIs------------------//
+
+// export const createSession = async ({ subjectCode, type, topic, description, date, time }) => {
+//   return sessionPostWithFallback(
+//     `/sessions`,
+//     `/studysession/create`,
+//     {
+//       subjectCode,
+//       type,
+//       topic,
+//       description,
+//       date,
+//       time,
+//     }
+//   );
+// };
+
+// export const updateSession = async (id, { subjectCode, type, topic, description, date, time }) => {
+//   return sessionPutWithFallback(
+//     `/sessions/${id}`,
+//     `/studysession/update/${id}`,
+//     { subjectCode, type, topic, description, date, time },
+//   );
+// };
+
+// export const deleteSession = async (id) => {
+//   return sessionDeleteWithFallback(`/sessions/${id}`, `/studysession/delete/${id}`);
+// };
+
+// //Session Service APIs end
+
