@@ -50,9 +50,9 @@ const formatFileSize = (sizeInBytes) => {
 export default function Resources() {
   const { subjectId } = useParams();
   const navigate = useNavigate();
-  const { role } = useAuth();
+  const { role, viewMode } = useAuth();
 
-  const canManageResources = role === "admin" || role === "superadmin";
+  const canManageResources = role === "superadmin" || viewMode === "admin";
 
   const [loading, setLoading] = useState(true);
   const [course, setCourse] = useState(null);
@@ -130,6 +130,11 @@ export default function Resources() {
 
   const handleUpload = async (event) => {
     event.preventDefault();
+
+    if (!canManageResources) {
+      toast.error("Switch to admin mode to upload resources.");
+      return;
+    }
 
     if (!file) {
       toast.error("Please select a PDF file to upload.");
@@ -217,12 +222,22 @@ export default function Resources() {
   };
 
   const openDeleteModal = (resource) => {
+    if (!canManageResources) {
+      toast.error("Switch to admin mode to delete resources.");
+      return;
+    }
+
     setSelectedResource(resource);
     setShowDeleteModal(true);
   };
 
   const handleDelete = async () => {
     if (!selectedResource?.resourceId) return;
+
+    if (!canManageResources) {
+      toast.error("Switch to admin mode to delete resources.");
+      return;
+    }
 
     try {
       setActionLoading(true);
