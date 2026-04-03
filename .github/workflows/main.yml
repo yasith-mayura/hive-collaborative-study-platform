@@ -62,6 +62,10 @@ jobs:
     #       username: ${{ secrets.DOCKER_USERNAME }}
     #       password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Create empty .env
+        working-directory: hive
+        run: touch .env
+
       # Step 4: Build all CI images
       - name: Build CI images
         working-directory: hive
