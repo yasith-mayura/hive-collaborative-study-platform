@@ -247,7 +247,7 @@ jobs:
         with:
           token: ${{ secrets.GH_PAT }}
           base: battlefield
-          branch: pr/staging-to-battlefield
+          branch: pr/staging-grounds
           title: "🚀 staging-grounds → battlefield (CI passed)"
           body: |
             ## ✅ CI Passed
