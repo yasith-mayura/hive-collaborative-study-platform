@@ -1,0 +1,78 @@
+# docker-compose.override.ci.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml up --build
+
+version: "3.8"
+services:
+  auth-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  user-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  resource-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  chat-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  note-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  progress-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  session-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  rag-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    restart: "no"
+    ports:
+      - "8080:80"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
