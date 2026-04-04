@@ -212,75 +212,69 @@ jobs:
   # ─────────────────────────────────────────────
   # JOB 4 — Create PR to battlefield
   # ─────────────────────────────────────────────
+
   create-pr:
-    name: 🚀 Create PR to battlefield
+    name: 🚀 Promote to battlefield
     runs-on: ubuntu-latest
     needs: [initialization, health-check, logs-and-artifacts]
     if: success()
 
     steps:
-      - name: Checkout source branch
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.branch }}
           fetch-depth: 0
           token: ${{ secrets.GH_PAT }}
 
-      - name: Ensure battlefield branch exists
-        run: |
-          git fetch origin || true
-
-          if git ls-remote --exit-code --heads origin battlefield; then
-            echo "Branch 'battlefield' already exists."
-          else
-            echo "Branch 'battlefield' does not exist. Creating it from main..."
-            git checkout -b battlefield origin/staging-grounds || git checkout -b battlefield
-            git push origin battlefield
-            echo "Branch 'battlefield' created."
-          fi
-
-      - name: Create or update PR via GitHub CLI
+      - name: Promote to battlefield
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           SOURCE="${{ github.event.inputs.branch }}"
           TARGET="battlefield"
-          TITLE="🚀 [${SOURCE}] → ${TARGET} (CI passed)"
-          BODY="## ✅ CI Passed
 
-          All checks passed for branch \`${SOURCE}\`.
+          BODY="## ✅ CI Passed
 
           | Field        | Value |
           |---|---|
           | Branch       | \`${SOURCE}\` |
           | Triggered by | @${{ github.actor }} |
-          | Run ID       | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
+          | Run          | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
           | Commit       | \`${{ github.sha }}\` |
 
-          > This PR was automatically created by the CI workflow."
+          > Automatically promoted after CI passed."
 
-          # Ensure labels exist before using them
-          gh label create "automated" --color "0075ca" --force || true
-          gh label create "ci-passed" --color "2ea44f" --force || true
+          # Does battlefield exist at all?
+          if ! git ls-remote --exit-code --heads origin "$TARGET" > /dev/null 2>&1; then
+            echo "ℹ️ '$TARGET' does not exist. Creating it from '$SOURCE' — no PR needed."
+            git checkout -b "$TARGET"
+            git push origin "$TARGET"
+            echo "✅ Branch '$TARGET' created from '$SOURCE'."
+            exit 0
+          fi
 
-          EXISTING=$(gh pr list \
+          echo "ℹ️ '$TARGET' exists. Checking for an open PR..."
+
+          EXISTING_PR=$(gh pr list \
             --head "$SOURCE" \
             --base "$TARGET" \
+            --state open \
             --json number \
             --jq '.[0].number' 2>/dev/null || echo "")
 
-          if [ -n "$EXISTING" ]; then
-            echo "PR #$EXISTING already exists. Updating..."
-            gh pr edit "$EXISTING" --body "$BODY"
-            gh pr edit "$EXISTING" --add-label "automated,ci-passed" || true
+          if [ -n "$EXISTING_PR" ]; then
+            echo "ℹ️ PR #$EXISTING_PR already exists. Updating..."
+            gh pr edit "$EXISTING_PR" \
+              --title "🚀 [${SOURCE}] → ${TARGET} (CI passed)" \
+              --body "$BODY"
+            echo "✅ PR #$EXISTING_PR updated."
           else
-            echo "Creating new PR from $SOURCE → $TARGET..."
+            echo "ℹ️ No open PR found. Creating one..."
             gh pr create \
               --head "$SOURCE" \
               --base "$TARGET" \
-              --title "$TITLE" \
+              --title "🚀 [${SOURCE}] → ${TARGET} (CI passed)" \
               --body "$BODY"
-
-            PR_NUM=$(gh pr list --head "$SOURCE" --base "$TARGET" --json number --jq '.[0].number')
-            gh pr edit "$PR_NUM" --add-label "automated,ci-passed" || true
+            echo "✅ PR created."
           fi
