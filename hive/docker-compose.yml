@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   mongo:
     image: mongo:6
@@ -8,76 +7,76 @@ services:
     volumes:
       - mongo-data:/data/db
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      test: ["CMD-SHELL", "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 40s
+      start_period: 25s
 
-  api-gateway:
-    build: ./services/api-gateway
-    env_file: .env
+  pgvector:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
     environment:
-      - PORT=4000
+      POSTGRES_USER: ${PGVECTOR_USER:-postgres}
+      POSTGRES_PASSWORD: ${PGVECTOR_PASSWORD:-postgres}
+      POSTGRES_DB: ${PGVECTOR_DATABASE:-hive_vectors}
     ports:
-      - "4000:4000"
-    depends_on:
-      mongo:
-        condition: service_healthy
-    restart: on-failure
+      - "5432:5432"
+    volumes:
+      - pgvector-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      test: ["CMD-SHELL", "pg_isready -U ${PGVECTOR_USER:-postgres} -d ${PGVECTOR_DATABASE:-hive_vectors}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 20s
 
   auth-service:
     build: ./services/auth-service
     env_file: .env
     environment:
-      - PORT=3000
+      PORT: 3000
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
     ports:
       - "3000:3000"
     depends_on:
       mongo:
         condition: service_healthy
-    restart: on-failure
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 25s
 
   user-service:
     build: ./services/user-service
     env_file: .env
     environment:
-      - PORT=3001
+      PORT: 3001
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
     ports:
       - "3001:3001"
     depends_on:
       mongo:
         condition: service_healthy
-    restart: on-failure
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 25s
 
   resource-service:
     build: ./services/resource-service
     env_file: .env
     environment:
-      - PORT=3002
-      - MONGO_URI=mongodb://mongo:27017/hive
-      - RAG_SERVICE_URL=http://rag-service:8000
-      - USER_SERVICE_URL=http://user-service:3001
-      # AWS credentials are read from .env via env_file above
-      # S3_BUCKET_NAME, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+      PORT: 3002
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
+      RAG_SERVICE_URL: http://rag-service:8000
+      USER_SERVICE_URL: http://user-service:3001
     ports:
       - "3002:3002"
     depends_on:
@@ -85,96 +84,151 @@ services:
         condition: service_healthy
       rag-service:
         condition: service_healthy
-    restart: on-failure
+      user-service:
+        condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 25s
 
   chat-service:
     build: ./services/chat-service
     env_file: .env
     environment:
-      - PORT=3003
+      PORT: 3003
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
     ports:
       - "3003:3003"
     depends_on:
       mongo:
         condition: service_healthy
-    restart: on-failure
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 25s
 
   note-service:
     build: ./services/note-service
     env_file: .env
     environment:
-      - PORT=3004
+      PORT: 3004
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
     ports:
       - "3004:3004"
     depends_on:
       mongo:
         condition: service_healthy
-    restart: on-failure
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 25s
 
   progress-service:
     build: ./services/progress-service
     env_file: .env
     environment:
-      - PORT=3005
+      PORT: 3005
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
     ports:
       - "3005:3005"
     depends_on:
       mongo:
         condition: service_healthy
-    restart: on-failure
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 25s
 
   session-service:
     build: ./services/session-service
     env_file: .env
     environment:
-      - PORT=3006
+      PORT: 3006
+      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
     ports:
       - "3006:3006"
     depends_on:
       mongo:
         condition: service_healthy
-    restart: on-failure
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 25s
 
   rag-service:
     build: ./services/rag-service
     env_file: .env
     environment:
-      - PORT=8000
+      PORT: 8000
+      PGVECTOR_HOST: pgvector
+      PGVECTOR_PORT: 5432
+      PGVECTOR_DATABASE: ${PGVECTOR_DATABASE:-hive_vectors}
+      PGVECTOR_USER: ${PGVECTOR_USER:-postgres}
+      PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD:-postgres}
+      RESOURCE_SERVICE_URL: http://resource-service:3002
     ports:
       - "8000:8000"
-    restart: on-failure
+    depends_on:
+      pgvector:
+        condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  api-gateway:
+    build: ./services/api-gateway
+    env_file: .env
+    environment:
+      PORT: 4000
+      AUTH_SERVICE_URL: http://auth-service:3000
+      USER_SERVICE_URL: http://user-service:3001
+      RESOURCE_SERVICE_URL: http://resource-service:3002
+      CHAT_SERVICE_URL: http://chat-service:3003
+      NOTE_SERVICE_URL: http://note-service:3004
+      PROGRESS_SERVICE_URL: http://progress-service:3005
+      SESSION_SERVICE_URL: http://session-service:3006
+      RAG_SERVICE_URL: http://rag-service:8000
+    ports:
+      - "4000:4000"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      user-service:
+        condition: service_healthy
+      resource-service:
+        condition: service_healthy
+      chat-service:
+        condition: service_healthy
+      note-service:
+        condition: service_healthy
+      progress-service:
+        condition: service_healthy
+      session-service:
+        condition: service_healthy
+      rag-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -184,10 +238,21 @@ services:
     build: ./frontend
     env_file: .env
     environment:
-      - PORT=5173
+      PORT: 5173
+      VITE_AUTH_SERVICE_URL: http://localhost:3000
+      VITE_USER_SERVICE_URL: http://localhost:3001
+      VITE_RESOURCE_SERVICE_URL: http://localhost:3002
+      VITE_CHAT_SERVICE_URL: http://localhost:3003
+      VITE_NOTE_SERVICE_URL: http://localhost:3004
+      VITE_PROGRESS_SERVICE_URL: http://localhost:3005
+      VITE_SESSION_SERVICE_URL: http://localhost:3006
+      VITE_RAG_SERVICE_URL: http://localhost:8000
     ports:
       - "5173:5173"
-    restart: on-failure
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5173"]
       interval: 10s
@@ -197,3 +262,4 @@ services:
 
 volumes:
   mongo-data:
+  pgvector-data:
