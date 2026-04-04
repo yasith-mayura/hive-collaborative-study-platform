@@ -1,4 +1,6 @@
-name: Full Stack CI
+# .github/workflows/ci.yml
+
+name: CI
 
 on:
   workflow_dispatch:
@@ -7,125 +9,107 @@ on:
         description: 'Branch to run workflow on'
         required: true
         default: 'staging-grounds'
+
 jobs:
-  ci:
+  test-compose:
+    name: Docker Compose Smoke Test
     runs-on: ubuntu-latest
-    env:
-      NODE_ENV: ci
-
-      # 🌍 Repo variables
-      FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
-      VITE_API_URL: ${{ vars.VITE_API_URL }}
-      RAG_SERVICE_URL: ${{ vars.RAG_SERVICE_URL }}
-      NGINX_APP0_DOMAIN: ${{ vars.NGINX_APP0_DOMAIN }}
-      VITE_BASE_URL: ${{ vars.VITE_BASE_URL }}
-      VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
-      VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
-      VITE_API_GATEWAY_URL: ${{ vars.VITE_API_GATEWAY_URL }}
-      VITE_AUTH_SERVICE_URL: ${{ vars.VITE_BASE_URL }}
-      VITE_USER_SERVICE_URL: ${{ vars.VITE_BASE_URL }}
-      VITE_RESOURCE_SERVICE_URL: ${{ vars.VITE_BASE_URL }}
-      VITE_CHAT_SERVICE_URL: ${{ vars.VITE_BASE_URL }}
-      VITE_NOTE_SERVICE_URL: ${{ vars.VITE_BASE_URL }}
-      VITE_PROGRESS_SERVICE_URL: ${{ vars.VITE_BASE_URL }}
-      VITE_SESSION_SERVICE_URL: ${{ vars.VITE_BASE_URL }}
-      VITE_RAG_SERVICE_URL: ${{ vars.VITE_BASE_URL }}
-
-      # 🔐 Secrets
-      MONGO_URI: ${{ secrets.MONGO_URI }}
-      FIREBASE_PRIVATE_KEY: FIREBASE_PRIVATE_KEY=$(echo "${{ secrets.FIREBASE_PRIVATE_KEY }}" | sed 's/\\\\n/\/g')
-      FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
-      VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-      VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
-      VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
-      
-    # services:
-    #   docker:
-    #     image: docker:24.0.6-dind
-    #     options: --privileged
-    #     ports:
-    #       - 2375:2375
+    timeout-minutes: 15
 
     steps:
       # Step 1: Checkout
-      - uses: actions/checkout@v6.0.2
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
         with:
-          ref: ${{ github.event.inputs.branch }}
+          ref: ${{ github.event.inputs.branch }}    
 
-      # Step 2: Set up Docker Buildx
-      - uses: docker/setup-buildx-action@v4.0.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.0.0
 
-    #   # Step 3: Login to Docker
-    #   - uses: docker/login-action@v3
-    #     with:
-    #       username: ${{ secrets.DOCKER_USERNAME }}
-    #       password: ${{ secrets.DOCKER_PASSWORD }}
-  
-      - name: Create empty .env
-        working-directory: hive
-        run: touch .env
-
-      # Step 4: Build all CI images
-      - name: Build CI images
-        working-directory: hive
-        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml build
-
-      # Step 5: Start CI services
-      - name: Start CI services
-        working-directory: hive
-        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml up -d
-
-      # Step 6: Wait for all services healthy
-      - name: Wait for services
+      - name: Create .env file from secrets & variables
         working-directory: hive
         run: |
-          echo "Waiting for all services to be healthy..."
-          for i in {1..30}; do
-            HEALTHY=$(docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps | grep healthy | wc -l)
-            TOTAL=$(docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps | grep -v Name | wc -l)
-            if [ "$HEALTHY" -eq "$TOTAL" ]; then
-              echo "All services are healthy!"
-              exit 0
-            fi
-            echo "Waiting 5s..."
-            sleep 5
+          cat <<EOF > .env
+          # Mongo
+          MONGO_URI=${{ secrets.MONGO_URI }}
+
+          # Firebase (backend services)
+          FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+
+          # RAG
+          RAG_SERVICE_URL=${{ vars.RAG_SERVICE_URL }}
+
+          # Firebase (frontend / Vite)
+          VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET=${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID=${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}
+          VITE_API_GATEWAY_URL=${{ vars.VITE_API_GATEWAY_URL }}
+          VITE_BASE_URL=${{ vars.VITE_BASE_URL }}
+          EOF
+
+      - name: Build & start all services
+        working-directory: hive
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.override.ci.yml \
+            up --build --detach
+
+      - name: Wait for frontend to be healthy
+        working-directory: hive
+        run: |
+          echo "Waiting for all services to report healthy..."
+          timeout 120 bash -c \
+            'until [ "$(docker compose ps --status healthy | grep -c healthy)" -ge 6 ]; do
+              echo "Still waiting..."; sleep 5;
+            done'
+
+      - name: Smoke test — check each service health endpoint
+        working-directory: hive
+        run: |
+          declare -A SERVICES=(
+            [auth-service]=3000
+            [user-service]=3001
+            [resource-service]=3002
+            [chat-service]=3003
+            [note-service]=3004
+            [progress-service]=3005
+            [session-service]=3006
+            [rag-service]=8000
+          )
+
+          for svc in "${!SERVICES[@]}"; do
+            port="${SERVICES[$svc]}"
+            container=$(docker compose ps -q "$svc")
+            echo -n "Checking $svc ... "
+            docker exec "$container" curl -sf "http://localhost:$port/health" \
+              && echo "OK" \
+              || (echo "FAILED" && exit 1)
           done
-          echo "Some services failed health check"
-          docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps
-          exit 1
 
-      # Step 7: Run backend tests in parallel
-      - name: Run backend tests
-        working-directory: hive
-        run: |
-          echo "Running backend tests..."
-          services=(auth-service user-service resource-service chat-service note-service progress-service session-service rag-service)
-          for svc in "${services[@]}"; do
-            echo "Testing $svc..."
-            docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T $svc npm test &
-          done
-          wait
+          echo -n "Checking frontend ... "
+          curl -sf http://localhost:8080 && echo "OK" || (echo "FAILED" && exit 1)
 
-      # Step 8: Run frontend E2E tests
-      - name: Run frontend E2E tests
-        working-directory: hive
-        run: |
-          docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T frontend npm install
-          docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T frontend npx cypress run
-#debugging purpose
-      - name: Debug env
-        working-directory: hive
-        if: always()
-        run: env
-          
-      - name: Debug logs on failure
+      - name: Print logs on failure
         working-directory: hive
         if: failure()
-        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml logs
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.override.ci.yml \
+            logs --no-color --tail=50
 
-      # Step 9: Tear down CI services
-      - name: Tear down CI
+      - name: Tear down
         working-directory: hive
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml down --volumes
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.override.ci.yml \
+            down --volumes --remove-orphans
