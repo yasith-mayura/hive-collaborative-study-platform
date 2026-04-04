@@ -108,12 +108,22 @@ jobs:
           wait
 
       # Step 8: Run frontend E2E tests
-      - name: Run frontend E2E tests
-        working-directory: hive
-        run: |
-          docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T frontend npm install
-          docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T frontend npx cypress run
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: ./hive/frontend/package-lock.json
 
+      - name: Install frontend dependencies
+        working-directory: ./hive/frontend
+        run: npm ci
+
+      - name: Run Cypress tests
+        working-directory: ./hive/frontend
+        run: npx cypress run --config baseUrl=http://localhost:8080
+        env:
+          CYPRESS_BASE_URL: http://localhost:8080
       - name: Print logs on failure
         working-directory: hive
         if: failure()
