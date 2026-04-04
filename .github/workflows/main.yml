@@ -278,9 +278,7 @@ jobs:
               --body "$BODY" \
               --label "automated" \
               --label "ci-passed"
-          fi
-
-          labels: |
-            automated
-            ci-passed
-          draft: false
+           # Add labels after creation so a missing label never blocks the PR
+              PR_NUM=$(gh pr list --head "$SOURCE" --base "$TARGET" --json number --jq '.[0].number')
+              gh pr edit "$PR_NUM" --add-label "automated,ci-passed" || true
+            fi
