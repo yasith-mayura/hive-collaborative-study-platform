@@ -1,0 +1,39 @@
+# docker-compose.prod.yml
+# Overrides for production — images pulled from ECR instead of built locally
+
+services:
+  auth-service:
+    image: ${ECR_REGISTRY}/hive/auth-service:${IMAGE_TAG}
+    build: ~
+
+  user-service:
+    image: ${ECR_REGISTRY}/hive/user-service:${IMAGE_TAG}
+    build: ~
+
+  resource-service:
+    image: ${ECR_REGISTRY}/hive/resource-service:${IMAGE_TAG}
+    build: ~
+
+  chat-service:
+    image: ${ECR_REGISTRY}/hive/chat-service:${IMAGE_TAG}
+    build: ~
+
+  note-service:
+    image: ${ECR_REGISTRY}/hive/note-service:${IMAGE_TAG}
+    build: ~
+
+  progress-service:
+    image: ${ECR_REGISTRY}/hive/progress-service:${IMAGE_TAG}
+    build: ~
+
+  session-service:
+    image: ${ECR_REGISTRY}/hive/session-service:${IMAGE_TAG}
+    build: ~
+
+  rag-service:
+    image: ${ECR_REGISTRY}/hive/rag-service:${IMAGE_TAG}
+    build: ~
+
+  frontend:
+    image: ${ECR_REGISTRY}/hive/frontend:${IMAGE_TAG}
+    build: ~

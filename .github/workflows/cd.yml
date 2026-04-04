@@ -83,6 +83,7 @@ jobs:
           done
 
           # Frontend — all VITE_ vars baked in at build time
+          # Frontend is in a different directory
           echo "==> Building frontend..."
           docker buildx build \
             --platform linux/amd64 \
@@ -108,6 +109,8 @@ jobs:
             --build-arg VITE_PROGRESS_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
             --build-arg VITE_SESSION_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
             --build-arg VITE_RAG_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
+            --build-arg VITE_BASE_URL="${{ vars.VITE_BASE_URL }}" \
+            --build-arg VITE_API_GATEWAY_URL="${{ vars.VITE_API_GATEWAY_URL }}" \
             "./frontend"
 
   # ─────────────────────────────────────────────
