@@ -82,7 +82,7 @@ jobs:
               "./services/$svc"
           done
 
-          # Frontend is in a different directory
+          # Frontend — all VITE_ vars baked in at build time
           echo "==> Building frontend..."
           docker buildx build \
             --platform linux/amd64 \
@@ -98,8 +98,16 @@ jobs:
             --build-arg VITE_FIREBASE_MESSAGING_SENDER_ID="${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}" \
             --build-arg VITE_FIREBASE_APP_ID="${{ secrets.VITE_FIREBASE_APP_ID }}" \
             --build-arg VITE_FIREBASE_MEASUREMENT_ID="${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}" \
-            --build-arg VITE_BASE_URL="${{ vars.VITE_BASE_URL }}" \
             --build-arg VITE_API_GATEWAY_URL="${{ vars.VITE_API_GATEWAY_URL }}" \
+            --build-arg VITE_BASE_URL="${{ vars.VITE_BASE_URL }}" \
+            --build-arg VITE_AUTH_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
+            --build-arg VITE_USER_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
+            --build-arg VITE_RESOURCE_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
+            --build-arg VITE_CHAT_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
+            --build-arg VITE_NOTE_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
+            --build-arg VITE_PROGRESS_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
+            --build-arg VITE_SESSION_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
+            --build-arg VITE_RAG_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
             "./frontend"
 
   # ─────────────────────────────────────────────
