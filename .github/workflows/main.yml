@@ -53,48 +53,62 @@ jobs:
           VITE_BASE_URL=${{ vars.VITE_BASE_URL }}
           EOF
 
-      - name: Build & start all services
+      - name: Build CI images
+        working-directory: hive
+        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml build
+
+      - name: Start CI services
+        working-directory: hive
+        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml up -d
+
+      # Wait for all services healthy
+      - name: Wait for services
         working-directory: hive
         run: |
-          docker compose \
-            -f docker-compose.yml \
-            -f docker-compose.override.ci.yml \
-            up --build --detach
-
-      - name: Wait for frontend to be healthy
-        working-directory: hive
-        run: |
-          echo "Waiting for all services to report healthy..."
-          timeout 120 bash -c \
-            'until [ "$(docker compose ps --status healthy | grep -c healthy)" -ge 6 ]; do
-              echo "Still waiting..."; sleep 5;
-            done'
-
-      - name: Smoke test — check each service health endpoint
-        working-directory: hive
-        run: |
-          declare -A SERVICES=(
-            [auth-service]=3000
-            [user-service]=3001
-            [resource-service]=3002
-            [chat-service]=3003
-            [note-service]=3004
-            [progress-service]=3005
-            [session-service]=3006
-            [rag-service]=8000
-          )
-
-          for svc in "${!SERVICES[@]}"; do
-            port="${SERVICES[$svc]}"
-            container=$(docker compose ps -q "$svc")
-            echo -n "Checking $svc ... "
-            docker exec "$container" curl -sf "http://localhost:$port/health" \
-              && echo "OK" \
-              || (echo "FAILED" && exit 1)
+          echo "Waiting for all services to be healthy..."
+          for i in {1..30}; do
+            HEALTHY=$(docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps | grep healthy | wc -l)
+            TOTAL=$(docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps | grep -v Name | wc -l)
+            if [ "$HEALTHY" -eq "$TOTAL" ]; then
+              echo "All services are healthy!"
+              exit 0
+            fi
+            echo "Waiting 5s..."
+            sleep 5
           done
+          echo "Some services failed health check"
+          docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps
+          exit 1
 
-          echo -n "Checking frontend ... "
-          curl -sf http://localhost:8080 && echo "OK" || (echo "FAILED" && exit 1)
+      # Step 7: Run backend tests in parallel
+      - name: Run backend tests
+        working-directory: hive
+        run: |
+          echo "Running backend tests..."
+          services=(auth-service user-service resource-service chat-service note-service progress-service session-service rag-service)
+          for svc in "${services[@]}"; do
+            echo "Testing $svc..."
+            docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T $svc npm test &
+          done
+          wait
+
+      # Step 8: Run frontend E2E tests
+      - name: Run frontend E2E tests
+        working-directory: hive
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T frontend npm install
+          docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T frontend npx cypress run
+      #debugging purpose
+      - name: Debug env
+        working-directory: hive
+        if: always()
+        run: env
+          
+      - name: Debug logs on failure
+        working-directory: hive
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml logs
+
 
       - name: Print logs on failure
         working-directory: hive
