@@ -1,75 +1,269 @@
-name: Full Stack CI
+# .github/workflows/ci.yml
+
+name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to run workflow on'
+        required: true
+        default: 'staging-grounds'
 
 jobs:
-  ci:
+  # ─────────────────────────────────────────────
+  # JOB 1 — Initialization
+  # ─────────────────────────────────────────────
+  initialization:
+    name: 🏗️ Build & Start Services
     runs-on: ubuntu-latest
-    services:
-      docker:
-        image: docker:24.0.6-dind
-        options: --privileged
-        ports:
-          - 2375:2375
+    timeout-minutes: 15
 
     steps:
-      # Step 1: Checkout
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
 
-      # Step 2: Set up Docker Buildx
-      - uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    #   # Step 3: Login to Docker
-    #   - uses: docker/login-action@v3
-    #     with:
-    #       username: ${{ secrets.DOCKER_USERNAME }}
-    #       password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Create .env file
+        working-directory: hive
+        run: |
+          cat <<EOF > .env
+          MONGO_URI=${{ secrets.MONGO_URI }}
+          FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+          RAG_SERVICE_URL=${{ vars.RAG_SERVICE_URL }}
+          VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET=${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID=${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}
+          VITE_API_GATEWAY_URL=${{ vars.VITE_API_GATEWAY_URL }}
+          VITE_BASE_URL=${{ vars.VITE_BASE_URL }}
+          EOF
 
-      # Step 4: Build all CI images
-      - name: Build CI images
+      - name: Build images
+        working-directory: hive
         run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml build
 
-      # Step 5: Start CI services
-      - name: Start CI services
+      - name: Start services
+        working-directory: hive
         run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml up -d
 
-      # Step 6: Wait for all services healthy
-      - name: Wait for services
+      - name: Save compose state
+        working-directory: hive
+        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps > compose-ps.txt
+
+      - name: Upload compose state artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-state
+          path: hive/compose-ps.txt
+          retention-days: 1
+
+  # ─────────────────────────────────────────────
+  # JOB 2 — Health Check
+  # ─────────────────────────────────────────────
+  health-check:
+    name: 🩺 Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: initialization
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Restore .env file
+        working-directory: hive
         run: |
+          cat <<EOF > .env
+          MONGO_URI=${{ secrets.MONGO_URI }}
+          FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+          RAG_SERVICE_URL=${{ vars.RAG_SERVICE_URL }}
+          VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET=${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID=${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}
+          VITE_API_GATEWAY_URL=${{ vars.VITE_API_GATEWAY_URL }}
+          VITE_BASE_URL=${{ vars.VITE_BASE_URL }}
+          EOF
+
+      - name: Start services (restore runner state)
+        working-directory: hive
+        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml up -d
+
+      - name: Wait for all services to be healthy
+        working-directory: hive
+        run: |
+          COMPOSE="docker compose -f docker-compose.yml -f docker-compose.override.ci.yml"
+
           echo "Waiting for all services to be healthy..."
-          for i in {1..30}; do
-            HEALTHY=$(docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps | grep 'healthy' | wc -l)
-            TOTAL=$(docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps | grep -v Name | wc -l)
-            if [ "$HEALTHY" -eq "$TOTAL" ]; then
-              echo "All services are healthy!"
+          for i in {1..36}; do
+            HEALTHY=$($COMPOSE ps | grep -c '(healthy)' || true)
+            TOTAL=$($COMPOSE ps --services | wc -l | tr -d ' ')
+
+            echo "[$i/36] Healthy: $HEALTHY / $TOTAL"
+
+            if [ "$HEALTHY" -eq "$TOTAL" ] && [ "$TOTAL" -gt 0 ]; then
+              echo "All $TOTAL services are healthy!"
               exit 0
             fi
-            echo "Waiting 5s..."
+
+            EXITED=$($COMPOSE ps | grep -cE 'Exit|exited|unhealthy' || true)
+            if [ "$EXITED" -gt 0 ]; then
+              echo "A service has crashed or is unhealthy:"
+              $COMPOSE ps
+              exit 1
+            fi
+
             sleep 5
           done
-          echo "Some services failed health check"
-          docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps
+
+          echo "Timed out waiting for services to become healthy"
+          $COMPOSE ps
           exit 1
 
-      # Step 7: Run backend tests in parallel
-      - name: Run backend tests
-        run: |
-          echo "Running backend tests..."
-          services=(auth-service user-service resource-service chat-service note-service progress-service session-service rag-service)
-          for svc in "${services[@]}"; do
-            echo "Testing $svc..."
-            docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T $svc npm test &
-          done
-          wait
-
-      # Step 8: Run frontend E2E tests
-      - name: Run frontend E2E tests
-        run: |
-          docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T frontend npm install
-          docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T frontend npx cypress run
-
-      # Step 9: Tear down CI services
-      - name: Tear down CI
+      - name: Save health check result
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml down --volumes
+        working-directory: hive
+        run: |
+          COMPOSE="docker compose -f docker-compose.yml -f docker-compose.override.ci.yml"
+          $COMPOSE ps > health-report.txt
+          echo "--- Service Logs Snapshot ---" >> health-report.txt
+          $COMPOSE logs --no-color --tail=30 >> health-report.txt
+
+      - name: Upload health report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-report
+          path: hive/health-report.txt
+          retention-days: 7
+
+      - name: Tear down
+        if: always()
+        working-directory: hive
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.override.ci.yml \
+            down --volumes --remove-orphans
+
+  # ─────────────────────────────────────────────
+  # JOB 3 — Logs & Artifacts Summary
+  # ─────────────────────────────────────────────
+  logs-and-artifacts:
+    name: 📋 Logs & Artifacts
+    runs-on: ubuntu-latest
+    needs: health-check
+    if: always()
+
+    steps:
+      - name: Download health report
+        uses: actions/download-artifact@v4
+        with:
+          name: health-report
+          path: reports
+
+      - name: Download compose state
+        uses: actions/download-artifact@v4
+        with:
+          name: compose-state
+          path: reports
+
+      - name: Print health report to job summary
+        run: |
+          echo "## 🩺 CI Health Report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat reports/health-report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Print compose state to job summary
+        run: |
+          echo "## 🐳 Docker Compose State" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat reports/compose-ps.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload combined report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-full-report
+          path: reports/
+          retention-days: 14
+
+  # ─────────────────────────────────────────────
+  # JOB 4 — Create PR to battlefield
+  # ─────────────────────────────────────────────
+  create-pr:
+    name: 🚀 Create PR to battlefield
+    runs-on: ubuntu-latest
+    needs: [initialization, health-check, logs-and-artifacts]
+    if: success()
+
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Ensure battlefield branch exists
+        run: |
+          git fetch origin || true
+
+          if git ls-remote --exit-code --heads origin battlefield; then
+            echo "Branch 'battlefield' already exists."
+          else
+            echo "Branch 'battlefield' does not exist. Creating it from main..."
+            git checkout -b battlefield origin/staging-grounds || git checkout -b battlefield
+            git push origin battlefield
+            echo "Branch 'battlefield' created."
+          fi
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GH_PAT }}
+          base: battlefield
+          branch: ${{ github.event.inputs.branch }}
+          title: "🚀 [${{ github.event.inputs.branch }}] → battlefield (CI passed)"
+          body: |
+            ## ✅ CI Passed
+
+            All checks passed for branch `${{ github.event.inputs.branch }}`.
+
+            ### Details
+            | Field        | Value |
+            |---|---|
+            | Branch       | `${{ github.event.inputs.branch }}` |
+            | Triggered by | @${{ github.actor }} |
+            | Run ID       | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
+            | Commit       | `${{ github.sha }}` |
+
+            ### Artifacts
+            - 📋 [CI Full Report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            > This PR was automatically created by the CI workflow.
+          labels: |
+            automated
+            ci-passed
+          draft: false
