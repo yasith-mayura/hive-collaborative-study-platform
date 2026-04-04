@@ -39,7 +39,7 @@ jobs:
         run: |
           echo "Waiting for all services to be healthy..."
           for i in {1..30}; do
-            HEALTHY=$(docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps | grep "healthy" | wc -l)
+            HEALTHY=$(docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps | grep 'healthy' | wc -l)
             TOTAL=$(docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps | grep -v Name | wc -l)
             if [ "$HEALTHY" -eq "$TOTAL" ]; then
               echo "All services are healthy!"
