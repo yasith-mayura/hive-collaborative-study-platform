@@ -1,47 +1,76 @@
-version: "3.8"
-
+# docker-compose.override.ci.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml up --build
 services:
   auth-service:
-    build:
-      target: ci
-    ports: []
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   user-service:
-    build:
-      target: ci
-    ports: []
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   resource-service:
-    build:
-      target: ci
-    ports: []
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   chat-service:
-    build:
-      target: ci
-    ports: []
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   note-service:
-    build:
-      target: ci
-    ports: []
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   progress-service:
-    build:
-      target: ci
-    ports: []
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   session-service:
-    build:
-      target: ci
-    ports: []
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   rag-service:
-    build:
-      target: ci
-    ports: []
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   frontend:
-    build:
-      target: ci
-    ports: []
+    restart: "no"
+    ports:
+      - "8080:80"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s

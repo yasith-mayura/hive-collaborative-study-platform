@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   # mongo:
   #   image: mongo:6
@@ -34,9 +33,15 @@ services:
 
   auth-service:
     build: ./services/auth-service
-    env_file: .env
+    # env_file: .env
     environment:
-      - PORT=3000
+      PORT: 3000
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+
+
     # ports:
     #   - "3000:3000"
     networks:
@@ -51,9 +56,12 @@ services:
 
   user-service:
     build: ./services/user-service
-    env_file: .env
     environment:
-      - PORT=3001
+      PORT: 3001
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
     # ports:
     #   - "3001:3001"
     networks:
@@ -69,15 +77,19 @@ services:
 
   resource-service:
     build: ./services/resource-service
-    env_file: .env
     environment:
-      - PORT=3002
-      # - MONGO_URI=mongodb://mongo:27017/hive
-      - RAG_SERVICE_URL=http://rag-service:8000
+      PORT: 3002
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+      
+      # - MONGO_URI=mongodbenvironment:://mongo:27017/hive
       # AWS credentials are read from .env via env_file above
       # S3_BUCKET_NAME, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
-    ports:
-      - "3002:3002"
+    # ports:
+    #   - "3002:3002"
     networks:
       local:
     depends_on:
@@ -93,11 +105,15 @@ services:
 
   chat-service:
     build: ./services/chat-service
-    env_file: .env
     environment:
-      - PORT=3003
-    ports:
-      - "3003:3003"
+      PORT: 3003
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+    # ports:
+    #   - "3003:3003"
     networks:
       local:
     restart: on-failure
@@ -110,14 +126,15 @@ services:
 
   note-service:
     build: ./services/note-service
-    env_file: .env
     environment:
-      - PORT=3004
-    ports:
-      - "3004:3004"
-    depends_on:
-      frontend:
-        condition: service_healthy
+      PORT: 3004
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+    # ports:
+    #   - "3004:3004"
     restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
@@ -128,14 +145,15 @@ services:
 
   progress-service:
     build: ./services/progress-service
-    env_file: .env
     environment:
-      - PORT=3005
-    ports:
-      - "3005:3005"
-    depends_on:
-      frontend:
-        condition: service_healthy
+      PORT: 3005
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+    # ports:
+    #   - "3005:3005"
     restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
@@ -146,11 +164,15 @@ services:
 
   session-service:
     build: ./services/session-service
-    env_file: .env
     environment:
-      - PORT=3006
-    ports:
-      - "3006:3006"
+      PORT: 3006
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+    # ports:
+    #   - "3006:3006"
     networks:
       local:
     restart: on-failure
@@ -163,11 +185,15 @@ services:
 
   rag-service:
     build: ./services/rag-service
-    env_file: .env
     environment:
-      - PORT=8000
-    ports:
-      - "8000:8000"
+      PORT: 8000
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+    # ports:
+    #   - "8000:8000"
     restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -180,9 +206,23 @@ services:
     # profiles:
     #   - current
     build: ./frontend
-    env_file: .env
-    # environment:
-      # - PORT=5173
+    environment:
+      VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+      VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+      VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+      VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET}
+      VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID}
+      VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
+      VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID}
+      VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL}
+      VITE_AUTH_SERVICE_URL: ${VITE_BASE_URL}
+      VITE_USER_SERVICE_URL: ${VITE_BASE_URL}
+      VITE_RESOURCE_SERVICE_URL: ${VITE_BASE_URL}
+      VITE_CHAT_SERVICE_URL: ${VITE_BASE_URL}
+      VITE_NOTE_SERVICE_URL: ${VITE_BASE_URL}
+      VITE_PROGRESS_SERVICE_URL: ${VITE_BASE_URL}
+      VITE_SESSION_SERVICE_URL: ${VITE_BASE_URL}
+      VITE_RAG_SERVICE_URL: ${VITE_BASE_URL}
     ports:
       - "80:80"
     networks:
@@ -206,8 +246,7 @@ services:
       retries: 5
       start_period: 30s
 
-# volumes:
-#   mongo-data:
+
 
 networks:
   # Connects all commons serices (Certbot, Nginx, pgAdmin, Chatbot and Django).
