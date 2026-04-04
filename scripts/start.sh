@@ -13,7 +13,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 HIVE_DIR="$PROJECT_ROOT/hive"
 
-clear
+safe_clear() {
+  if [ -n "${TERM:-}" ] && command -v clear >/dev/null 2>&1; then
+    clear
+  else
+    printf '\n'
+  fi
+}
+
+safe_clear
 
 echo ""
 echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
@@ -62,7 +70,7 @@ echo ""
 
 # Stop any existing containers
 echo -e "${YELLOW}Stopping any existing containers...${NC}"
-docker compose down > /dev/null 2>&1
+docker compose down --remove-orphans > /dev/null 2>&1
 echo -e "${GREEN}✓ Cleaned up existing containers${NC}"
 echo ""
 
@@ -71,9 +79,23 @@ echo -e "${YELLOW}Starting all services with Docker Compose...${NC}"
 echo -e "${BLUE}This may take a few minutes on first run...${NC}"
 echo ""
 
-docker compose up -d
+start_compose() {
+  docker compose up -d --build
+}
 
-if [ $? -ne 0 ]; then
+start_compose
+compose_status=$?
+
+if [ "$compose_status" -ne 0 ]; then
+  echo ""
+  echo -e "${YELLOW}Initial start failed; retrying after a clean shutdown...${NC}"
+  docker compose down --remove-orphans > /dev/null 2>&1
+  sleep 3
+  start_compose
+  compose_status=$?
+fi
+
+if [ "$compose_status" -ne 0 ]; then
   echo ""
   echo -e "${RED}✗ Error: Failed to start services${NC}"
   echo -e "${YELLOW}Check the logs above for details${NC}"

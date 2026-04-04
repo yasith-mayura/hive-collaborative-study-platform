@@ -43,12 +43,19 @@ check_service() {
 echo -e "${YELLOW}Checking all services...${NC}"
 echo ""
 
-# Check MongoDB
+# Check databases
 echo -e "${BLUE}Database:${NC}"
 if docker compose ps mongo --format json 2>/dev/null | jq -e 'if type == "array" then .[0].State == "running" else .State == "running" end' > /dev/null 2>&1; then
   echo -e "  ${GREEN}✓${NC} MongoDB - ${GREEN}running${NC}"
 else
   echo -e "  ${RED}✗${NC} MongoDB - ${RED}not running${NC}"
+  ALL_HEALTHY=false
+fi
+
+if docker compose ps pgvector --format json 2>/dev/null | jq -e 'if type == "array" then .[0].State == "running" else .State == "running" end' > /dev/null 2>&1; then
+  echo -e "  ${GREEN}✓${NC} PGVector - ${GREEN}running${NC}"
+else
+  echo -e "  ${RED}✗${NC} PGVector - ${RED}not running${NC}"
   ALL_HEALTHY=false
 fi
 echo ""

@@ -12,6 +12,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 HIVE_DIR="$PROJECT_ROOT/hive"
 
+safe_clear() {
+  if [ -n "${TERM:-}" ] && command -v clear >/dev/null 2>&1; then
+    clear
+  else
+    printf '\n'
+  fi
+}
+
+tput_supported() {
+  [ -n "${TERM:-}" ] && command -v tput >/dev/null 2>&1
+}
+
 # Change to hive directory for docker compose commands
 cd "$HIVE_DIR" || {
   echo -e "${RED}✗ Error: Could not find hive directory${NC}"
@@ -26,6 +38,7 @@ echo ""
 # List of services to check
 SERVICES=(
   "mongo"
+  "pgvector"
   "api-gateway"
   "auth-service"
   "user-service"
@@ -93,9 +106,11 @@ while true; do
     exit 1
   fi
   
-  # Clear previous output
-  tput cuu $(( ${#SERVICES[@]} + 3 )) 2>/dev/null || true
-  tput ed 2>/dev/null || true
+  # Clear previous output when terminal capabilities are available
+  if tput_supported; then
+    tput cuu $(( ${#SERVICES[@]} + 3 )) 2>/dev/null || true
+    tput ed 2>/dev/null || true
+  fi
   
   echo -e "${BLUE}[$(date '+%H:%M:%S')]${NC} Checking service health (${ELAPSED}s elapsed)..."
   echo ""
@@ -108,10 +123,12 @@ while true; do
     
     print_status "$service" "$health" "$state"
     
-    if [ "$health" != "healthy" ] && [ "$service" != "mongo" ]; then
-      # For mongo, check if it has no healthcheck or is healthy
+    if [ "$health" != "healthy" ] && [ "$service" != "mongo" ] && [ "$service" != "pgvector" ]; then
+      # For databases, check if it has no healthcheck or is healthy
       ALL_HEALTHY=false
     elif [ "$service" = "mongo" ] && [ "$health" != "healthy" ] && [ "$state" = "running" ]; then
+      ALL_HEALTHY=false
+    elif [ "$service" = "pgvector" ] && [ "$health" != "healthy" ] && [ "$state" = "running" ]; then
       ALL_HEALTHY=false
     fi
   done
@@ -126,7 +143,7 @@ while true; do
 done
 
 # Clear and show success message
-clear
+safe_clear
 
 echo ""
 echo -e "${GREEN}╔════════════════════════════════════════════════════════╗${NC}"

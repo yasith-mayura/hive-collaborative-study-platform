@@ -61,10 +61,17 @@ while true; do
   # Database
   echo -e "${YELLOW}DATABASE:${NC}"
   mongo_health=$(get_docker_health "mongo")
+  pgvector_health=$(get_docker_health "pgvector")
   if [ "$mongo_health" = "healthy" ]; then
     echo -e "  ${GREEN}●${NC} MongoDB          ${GREEN}healthy${NC}      Port: 27017"
   else
     echo -e "  ${RED}●${NC} MongoDB          ${RED}$mongo_health${NC}      Port: 27017"
+  fi
+
+  if [ "$pgvector_health" = "healthy" ]; then
+    echo -e "  ${GREEN}●${NC} PGVector         ${GREEN}healthy${NC}      Port: 5432"
+  else
+    echo -e "  ${RED}●${NC} PGVector         ${RED}$pgvector_health${NC}      Port: 5432"
   fi
   echo ""
   
@@ -121,7 +128,7 @@ while true; do
   echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   
   # Count healthy services
-  total_services=11
+  total_services=12
   healthy_count=0
   
   for service_info in "${services[@]}"; do
@@ -134,6 +141,10 @@ while true; do
   
   # Check mongo
   if [ "$mongo_health" = "healthy" ]; then
+    ((healthy_count++))
+  fi
+
+  if [ "$pgvector_health" = "healthy" ]; then
     ((healthy_count++))
   fi
   
