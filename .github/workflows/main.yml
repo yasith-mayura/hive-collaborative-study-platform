@@ -33,7 +33,7 @@ jobs:
 
       # 🔐 Secrets
       MONGO_URI: ${{ secrets.MONGO_URI }}
-      FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+      FIREBASE_PRIVATE_KEY: FIREBASE_PRIVATE_KEY=$(echo "${{ secrets.FIREBASE_PRIVATE_KEY }}" | sed 's/\\\\n/\/g')
       FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
       VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
       VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
