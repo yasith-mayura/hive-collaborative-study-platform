@@ -1,32 +1,58 @@
-name: Full Stack CI
+# .github/workflows/ci.yml
+
+name: CI
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to run workflow on'
+        required: true
+        default: 'staging-grounds'
 
 jobs:
-  ci:
+  test-compose:
+    name: Docker Compose Smoke Test
     runs-on: ubuntu-latest
-    services:
-      docker:
-        image: docker:24.0.6-dind
-        options: --privileged
-        ports:
-          - 2375:2375
+    timeout-minutes: 15
 
     steps:
       # Step 1: Checkout
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{ github.event.inputs.branch }}    
 
-      # Step 2: Set up Docker Buildx
-      - uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.0.0
 
-    #   # Step 3: Login to Docker
-    #   - uses: docker/login-action@v3
-    #     with:
-    #       username: ${{ secrets.DOCKER_USERNAME }}
-    #       password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Create .env file from secrets & variables
+        working-directory: hive
+        run: |
+          cat <<EOF > .env
+          # Mongo
+          MONGO_URI=${{ secrets.MONGO_URI }}
 
-      # Step 4: Build all CI images
+          # Firebase (backend services)
+          FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+
+          # RAG
+          RAG_SERVICE_URL=${{ vars.RAG_SERVICE_URL }}
+
+          # Firebase (frontend / Vite)
+          VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET=${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID=${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}
+          VITE_API_GATEWAY_URL=${{ vars.VITE_API_GATEWAY_URL }}
+          VITE_BASE_URL=${{ vars.VITE_BASE_URL }}
+          EOF
+
       - name: Build CI images
         run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml build
 
@@ -84,7 +110,20 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T frontend npm install
           docker compose -f docker-compose.yml -f docker-compose.override.ci.yml exec -T frontend npx cypress run
 
-      # Step 9: Tear down CI services
-      - name: Tear down CI
+      - name: Print logs on failure
+        working-directory: hive
+        if: failure()
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.override.ci.yml \
+            logs --no-color --tail=50
+
+      - name: Tear down
+        working-directory: hive
         if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml down --volumes
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.override.ci.yml \
+            down --volumes --remove-orphans
