@@ -14,11 +14,11 @@ const authMiddleware = require("../middleware/authMiddleware");
 const {requireRole} = require("../middleware/roleMiddleware");
 
 // Public routes
-router.get("/", getAllSessions);
-router.get("/current-month", getCurrentMonthSessions);
-router.get("/next-month", getNextMonthSessions);
-router.get("/month/:month", getSessionsByMonth);
-router.get("/:id", getSessionById);
+router.get("/", authMiddleware, getAllSessions);
+router.get("/current-month", authMiddleware, getCurrentMonthSessions);
+router.get("/next-month", authMiddleware, getNextMonthSessions);
+router.get("/month/:month", authMiddleware, getSessionsByMonth);
+router.get("/:id", authMiddleware, getSessionById);
 
 // Admin-only routes
 router.post("/", authMiddleware, requireRole("admin", "superadmin"), createSession);

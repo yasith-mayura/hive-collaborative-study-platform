@@ -6,6 +6,10 @@ import Notification from "@/components/ui/Notification";
 import Icon from "@/components/ui/Icon";
 import { getAllStudents, promoteUserToAdmin } from "@/services";
 
+const BUTTON_COLORS = {
+  success: { backgroundColor: "#DDF5E6", color: "#1B5133", border: "1px solid #3FB07A" },
+};
+
 const PromoteUserToAdmin = ({ isOpen, closeModal, onUserPromoted }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -111,7 +115,8 @@ const PromoteUserToAdmin = ({ isOpen, closeModal, onUserPromoted }) => {
                     <p className="text-xs text-gray-500">{user.studentNumber}</p>
                   </div>
                   <button
-                    className="px-3 py-2 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-2 text-xs font-medium rounded transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={BUTTON_COLORS.success}
                     onClick={() => handlePromote(user.studentNumber)}
                     disabled={promotingStudentNumber === user.studentNumber}
                   >

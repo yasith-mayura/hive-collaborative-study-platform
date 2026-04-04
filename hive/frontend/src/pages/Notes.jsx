@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { FaSearch, FaPaperPlane, FaEllipsisV } from "react-icons/fa";
 import { AiOutlineClose } from "react-icons/ai";
 import { HiDocumentText } from "react-icons/hi";
 import { RiVoiceprintLine } from "react-icons/ri";
 import { useAuth } from "@/context/AuthContext";
-import axios from "axios";
+import { getNotes , createNote, deleteNote, updateNote } from "@/services";
 
 export default function NotesPage() {
   const { user, token, loading } = useAuth();
@@ -21,33 +21,22 @@ export default function NotesPage() {
   const [text, setText] = useState("");
   const [isListening, setIsListening] = useState(false);
 
+
   const recognitionRef = useRef(null);
 
   const getAutoTopic = (content = "") =>
-    content
-      .trim()
-      .split(/\s+/)
-      .slice(0, 4)
-      .join(" ");
+    content.trim().split(/\s+/).slice(0, 4).join(" ");
 
   const filteredNotes = notes.filter((note) =>
     (note.title || note.content)
       .toLowerCase()
-      .includes(searchText.toLowerCase())
+      .includes(searchText.toLowerCase()),
   );
-
-  const api = useMemo(() => {
-    if (!token) return null;
-    return axios.create({
-      baseURL: "http://localhost:3004/api/notes",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-  }, [token]);
 
   // Fetch notes when user loads
   useEffect(() => {
-    if (!loading && user && api) fetchNotes();
-  }, [loading, user, api]);
+    if (!loading && user && token) fetchNotesData();
+  }, [loading, user, token]);
 
   useEffect(() => {
     if (!selectedNote) return;
@@ -55,16 +44,12 @@ export default function NotesPage() {
     setEditTopic(selectedNote.title || getAutoTopic(selectedNote.content));
   }, [selectedNote]);
 
-  const fetchNotes = async () => {
-    if (!api) {
-      console.error("API not initialized");
-      return;
-    }
+  const fetchNotesData = async () => {
     try {
-      const res = await api.get("/");
-      setNotes(res.data);
-      if (res.data.length > 0) {
-        setSelectedNote(res.data[0]);
+      const res = await getNotes();
+      setNotes(res);
+      if (res.length > 0) {
+        setSelectedNote(res[0]);
       }
     } catch (err) {
       console.error("Error fetching notes:", err);
@@ -102,62 +87,58 @@ export default function NotesPage() {
   };
 
   // Start voice recognition
-const startVoice = () => {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) return alert("Voice recognition not supported");
+  const startVoice = () => {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return alert("Voice recognition not supported");
 
-  setIsListening(true);
+    setIsListening(true);
 
-  recognitionRef.current = new SpeechRecognition();
-  recognitionRef.current.continuous = true;
-  recognitionRef.current.interimResults = true;
-  recognitionRef.current.lang = "en-US";
+    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current.continuous = true;
+    recognitionRef.current.interimResults = true;
+    recognitionRef.current.lang = "en-US";
 
-  let finalTranscript = text; // start with current text
+    let finalTranscript = text; // start with current text
 
-  recognitionRef.current.onresult = (event) => {
-    let interimTranscript = "";
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const transcript = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        finalTranscript += transcript + " "; // append only final
-      } else {
-        interimTranscript += transcript;
+    recognitionRef.current.onresult = (event) => {
+      let interimTranscript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript + " "; // append only final
+        } else {
+          interimTranscript += transcript;
+        }
       }
-    }
-    setText(finalTranscript + interimTranscript); // show both final + interim
+      setText(finalTranscript + interimTranscript); // show both final + interim
+    };
+
+    recognitionRef.current.onerror = (err) => console.error(err);
+
+    recognitionRef.current.onend = () => {
+      if (isListening) recognitionRef.current.start(); // auto-restart
+    };
+
+    recognitionRef.current.start();
   };
-
-  recognitionRef.current.onerror = (err) => console.error(err);
-
-  recognitionRef.current.onend = () => {
-    if (isListening) recognitionRef.current.start(); // auto-restart
-  };
-
-  recognitionRef.current.start();
-};
   const stopVoice = () => {
     setIsListening(false);
     recognitionRef.current?.stop();
   };
 
-  // Create note from voice/text
-  const createNote = async () => {
+  // Create note from voice/text - using dynamic API from @/services
+  const saveNewNote = async () => {
     if (!text.trim()) return;
-    if (!api) {
-      console.error("API not initialized - token may be missing");
-      alert("Authentication error. Please refresh the page.");
-      return;
-    }
     try {
       const payload = { content: text, isVoiceNote: false };
       if (newTopic.trim()) payload.title = newTopic.trim();
 
       console.log("Creating note with:", payload);
-      const res = await api.post("/create", payload);
-      console.log("Note created successfully:", res.data);
-      setNotes([...notes, res.data]);
-      setSelectedNote(res.data);
+      const res = await createNote(payload);
+      console.log("Note created successfully:", res);
+      setNotes([...notes, res]);
+      setSelectedNote(res);
       setText("");
       setNewTopic("");
       setIsCreatingNew(false);
@@ -165,19 +146,18 @@ const startVoice = () => {
       const backendMessage = err.response?.data?.message;
       const status = err.response?.status;
       console.error("Error creating note:", err.response?.data || err.message);
-      alert(backendMessage || `Failed to create note${status ? ` (HTTP ${status})` : ""}`);
+      alert(
+        backendMessage ||
+          `Failed to create note${status ? ` (HTTP ${status})` : ""}`,
+      );
     }
   };
 
-  const updateNote = async (id, payload) => {
-    if (!api) {
-      console.error("API not initialized");
-      return;
-    }
+  const handleUpdateNote = async (id, payload) => {
     try {
-      const res = await api.put(`/update/${id}`, payload);
-      setNotes(notes.map((n) => (n._id === id ? res.data : n)));
-      setSelectedNote(res.data);
+      const res = await updateNote(id, payload);
+      setNotes(notes.map((n) => (n._id === id ? res : n)));
+      setSelectedNote(res);
     } catch (err) {
       console.error("Error updating note:", err);
     }
@@ -197,7 +177,7 @@ const startVoice = () => {
     }
 
     if (Object.keys(payload).length > 0) {
-      await updateNote(selectedNote._id, payload);
+      await handleUpdateNote(selectedNote._id, payload);
     }
 
     setIsEditMode(false);
@@ -211,13 +191,9 @@ const startVoice = () => {
     setIsEditMode(false);
   };
 
-  const deleteNote = async (id) => {
-    if (!api) {
-      console.error("API not initialized");
-      return;
-    }
+  const handleDeleteNote = async (id) => {
     try {
-      await api.delete(`/delete/${id}`);
+      await deleteNote(id);
       const filtered = notes.filter((n) => n._id !== id);
       setNotes(filtered);
       if (selectedNote?._id === id) setSelectedNote(filtered[0] || null);
@@ -226,32 +202,27 @@ const startVoice = () => {
     }
   };
 
-const renameNote = async (note) => {
-  const newTitle = prompt("Enter new title", note.title || "");
-  if (!newTitle) return;
-  
-  if (!api) {
-    console.error("API not initialized");
-    return;
-  }
+  const renameNote = async (note) => {
+    const newTitle = prompt("Enter new title", note.title || "");
+    if (!newTitle) return;
 
-  try {
-    await updateNote(note._id, { title: newTitle.trim() });
-  } catch (err) {
-    console.error("Error renaming note:", err);
-  }
-};
-useEffect(() => {
-  const handleClickOutside = () => {
-    setShowMenuId(null);
+    try {
+      await handleUpdateNote(note._id, { title: newTitle.trim() });
+    } catch (err) {
+      console.error("Error renaming note:", err);
+    }
   };
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowMenuId(null);
+    };
 
-  window.addEventListener("click", handleClickOutside);
+    window.addEventListener("click", handleClickOutside);
 
-  return () => {
-    window.removeEventListener("click", handleClickOutside);
-  };
-}, []);
+    return () => {
+      window.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
   return (
     <div className="h-screen bg-primary p-6 overflow-y-auto">
       <div className="w-full">
@@ -285,7 +256,8 @@ useEffect(() => {
                 <div className="flex items-center gap-3 min-w-0">
                   <HiDocumentText className="text-gray-600 text-lg shrink-0" />
                   <span className="text-3xl truncate">
-                    {note.title || note.content.split(" ").slice(0, 4).join(" ")}
+                    {note.title ||
+                      note.content.split(" ").slice(0, 4).join(" ")}
                   </span>
                 </div>
 
@@ -324,7 +296,7 @@ useEffect(() => {
                     className="px-4 py-2 text-left hover:bg-gray-100 text-red-500"
                     onClick={() => {
                       setShowMenuId(null);
-                      deleteNote(note._id);
+                      handleDeleteNote(note._id);
                     }}
                   >
                     Delete
@@ -335,7 +307,9 @@ useEffect(() => {
           ))}
 
           {filteredNotes.length === 0 && (
-            <p className="text-gray-500">No notes yet. Click Create New Note.</p>
+            <p className="text-gray-500">
+              No notes yet. Click Create New Note.
+            </p>
           )}
         </div>
       </div>
@@ -344,7 +318,9 @@ useEffect(() => {
         <div className="fixed inset-0 flex items-start justify-center pt-20 z-50">
           <div className="bg-white rounded-lg shadow-lg w-[350px] p-4 border">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-gray-700 text-sm">Search Notes</h2>
+              <h2 className="font-semibold text-gray-700 text-sm">
+                Search Notes
+              </h2>
               <button
                 onClick={() => setShowSearch(false)}
                 className="text-gray-600 hover:text-gray-800"
@@ -375,7 +351,8 @@ useEffect(() => {
                         setSearchText("");
                       }}
                     >
-                      {note.title || note.content.split(" ").slice(0, 4).join(" ")}
+                      {note.title ||
+                        note.content.split(" ").slice(0, 4).join(" ")}
                     </div>
                   ))
                 ) : (
@@ -391,8 +368,13 @@ useEffect(() => {
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-lg border w-full max-w-3xl p-5">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-800">Create New Note</h2>
-              <button onClick={cancelCreate} className="text-gray-500 hover:text-gray-700">
+              <h2 className="text-xl font-semibold text-gray-800">
+                Create New Note
+              </h2>
+              <button
+                onClick={cancelCreate}
+                className="text-gray-500 hover:text-gray-700"
+              >
                 <AiOutlineClose />
               </button>
             </div>
@@ -439,7 +421,7 @@ useEffect(() => {
                 Cancel
               </button>
               <button
-                onClick={createNote}
+                onClick={saveNewNote}
                 disabled={!text.trim()}
                 className={`px-4 py-2 rounded font-medium transition ${
                   text.trim()
@@ -459,7 +441,10 @@ useEffect(() => {
           <div className="bg-white rounded-lg shadow-lg border w-full max-w-3xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-gray-800">Edit Note</h2>
-              <button onClick={cancelEdit} className="text-gray-500 hover:text-gray-700">
+              <button
+                onClick={cancelEdit}
+                className="text-gray-500 hover:text-gray-700"
+              >
                 <AiOutlineClose />
               </button>
             </div>

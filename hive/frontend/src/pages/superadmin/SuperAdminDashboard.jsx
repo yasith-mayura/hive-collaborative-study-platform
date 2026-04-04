@@ -3,7 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import {
   getAllStudents,
   getAllAdmins,
-  getAllSubjects,
+  getAllCourses,
   getCurrentMonthSessions,
   getAllUsers,
   getAllSessions,
@@ -45,7 +45,7 @@ export default function SuperAdminDashboard() {
           await Promise.allSettled([
             getAllStudents(),
             getAllAdmins(),
-            getAllSubjects(),
+            getAllCourses(),
             getCurrentMonthSessions(),
             getAllUsers(),
             getAllSessions(),
@@ -55,11 +55,14 @@ export default function SuperAdminDashboard() {
         const studentData = students.status === "fulfilled" ? students.value : [];
         const adminData = admins.status === "fulfilled" ? admins.value : [];
         const subjectData = subjects.status === "fulfilled" ? subjects.value : [];
+        const subjectList = Array.isArray(subjectData)
+          ? subjectData
+          : subjectData?.courses || [];
         const monthSessionData = monthSessions.status === "fulfilled" ? monthSessions.value : [];
 
         setStudentCount(Array.isArray(studentData) ? studentData.length : 0);
         setAdminCount(Array.isArray(adminData) ? adminData.length : 0);
-        setSubjectCount(Array.isArray(subjectData) ? subjectData.length : 0);
+        setSubjectCount(subjectList.length);
         setMonthSessionCount(Array.isArray(monthSessionData) ? monthSessionData.length : 0);
 
         // Build activity feed from recent users and sessions
@@ -131,7 +134,7 @@ export default function SuperAdminDashboard() {
       bg: "#F4EEFF",
     },
     {
-      label: "Subjects",
+      label: "Courses",
       value: subjectCount,
       icon: "book-open",
       color: "#0CE7FA",

@@ -43,6 +43,8 @@ const authMiddleware = async (req, res, next) => {
       email: decoded.email || null,
       role: dbUser.role,   // always from DB, never stale
       _id: dbUser._id,
+      batch: dbUser.batch ?? null,
+      studentNumber: dbUser.studentNumber ?? null,
     };
 
     next();

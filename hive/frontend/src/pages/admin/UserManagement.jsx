@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
 import Card from "@/components/ui/Card";
-import Icon from "@/components/ui/Icon";
 import Drawer from "@/components/ui/Drawer";
 import Notification from "@/components/ui/Notification";
 import UserProfile from "@/pages/admin/components/UserProfile";
 import UserSearch from "@/pages/admin/components/UserSearch";
 import { getAllUsers, getUserByStudentNumber, deleteUser, updateUser } from "@/services";
-import AddNewUserModel from "./components/AddNewUser";
+
+const BUTTON_COLORS = {
+  primary: { backgroundColor: "#EAF8FF", color: "#0D4B66" },
+  danger: { backgroundColor: "#FFEFF4", color: "#7A3650" },
+};
 
 function Users() {
   const [users, setUsers] = useState([]);
@@ -15,7 +18,6 @@ function Users() {
   const [fetchLoading, setFetchLoading] = useState(true);
   const [openDrawer, setOpenDrawer] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [openModel, setOpenModel] = useState(false);
 
   const columns = [
     { label: "Name", field: "name" },
@@ -113,13 +115,6 @@ function Users() {
               handleSearch={handleSearch}
             />
           </div>
-          <button
-            className="inline-flex items-center justify-center gap-2 rounded-sm py-2 px-4 bg-gray-800 text-white shadow-theme-xs hover:bg-gray-900"
-            onClick={() => setOpenModel(true)}
-          >
-            <Icon icon="heroicons-outline:plus" className="w-5 h-5" />
-            Add New User
-          </button>
         </div>
 
         <Card noborder>
@@ -164,14 +159,16 @@ function Users() {
                                   <button
                                     type="button"
                                     onClick={() => handleClick(row.studentNumber)}
-                                    className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
+                                    className="px-3 py-1 text-xs font-medium rounded transition-opacity hover:opacity-90"
+                                    style={BUTTON_COLORS.primary}
                                   >
                                     Update
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteUser(row.studentNumber)}
-                                    className="px-3 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                                    className="px-3 py-1 text-xs font-medium rounded transition-opacity hover:opacity-90"
+                                    style={BUTTON_COLORS.danger}
                                   >
                                     Delete
                                   </button>
@@ -211,12 +208,6 @@ function Users() {
           />
         )}
       </Drawer>
-
-      <AddNewUserModel
-        isOpen={openModel}
-        closeModal={() => setOpenModel(false)}
-        onUserAdded={fetchUsers}
-      />
     </>
   );
 }

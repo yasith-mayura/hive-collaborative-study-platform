@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { getAllStudents, getAllSubjects } from "@/services";
+import { getAllStudents, getAllCourses, getAllSessions, getMyProfile } from "@/services";
 import StudySessionCalendar from "@/pages/StudySession";
+import UpcomingTasks from "@/components/UpcomingTasks";
 
 const SUBJECT_DOT_COLORS = [
   "#FFCC00",
@@ -19,28 +20,74 @@ export default function AdminDashboard() {
 
   const [studentCount, setStudentCount] = useState(0);
   const [subjects, setSubjects] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
+  const [adminBatchLabel, setAdminBatchLabel] = useState("your assigned");
+
+  const formatBatchLabel = (batchValue) => {
+    const batchText = String(batchValue || "").trim();
+    if (!batchText) return "your assigned";
+
+    const batchYear = Number(batchText);
+    if (Number.isInteger(batchYear) && batchText.length === 4) {
+      const start = String(batchYear).slice(2);
+      const end = String(batchYear + 1).slice(2);
+      return `${start}/${end}`;
+    }
+
+    return batchText;
+  };
 
   useEffect(() => {
+    getMyProfile()
+      .then((profile) => setAdminBatchLabel(formatBatchLabel(profile?.batch)))
+      .catch(() => setAdminBatchLabel("your assigned"));
+
     getAllStudents()
       .then((data) => setStudentCount(Array.isArray(data) ? data.length : 0))
       .catch(() => setStudentCount(0));
 
-    getAllSubjects()
-      .then((data) => setSubjects(Array.isArray(data) ? data : []))
+    getAllCourses()
+      .then((data) => setSubjects(Array.isArray(data?.courses) ? data.courses : []))
       .catch(() => setSubjects([]));
+
+    const fetchTasks = async () => {
+      setLoadingTasks(true);
+      try {
+        const sessions = await getAllSessions();
+        const todayColombo = new Date();
+        todayColombo.setHours(0, 0, 0, 0);
+
+        const futureTasks = (sessions || [])
+          .map((task) => {
+            const utc = new Date(task.date);
+            const local = new Date(utc.getTime() + 5.5 * 60 * 60 * 1000);
+            return { ...task, localDate: local };
+          })
+          .filter((task) => task.localDate >= todayColombo)
+          .sort((a, b) => a.localDate - b.localDate);
+
+        setTasks(futureTasks);
+      } catch (err) {
+        console.error("Admin dashboard fetch error:", err);
+      } finally {
+        setLoadingTasks(false);
+      }
+    };
+    fetchTasks();
   }, []);
 
   return (
     <div>
       {/* Greeting */}
       <h2 className="text-lg font-semibold text-secondary-800 mb-5">
-        Hey {displayName}! 🐝 You are managing 22/23 batch for year 1 sem 2
+        Hey {displayName}! 🐝 You are managing {adminBatchLabel} batch
       </h2>
 
       {/* Main layout: calendar + sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar — reuse the full StudySession component (admin CRUD built-in) */}
-        <div className="lg:col-span-3">
+        <div className="lg:col-span-2">
           <StudySessionCalendar isUpcomingTasks={false} />
         </div>
 
@@ -54,14 +101,19 @@ export default function AdminDashboard() {
             </p>
           </div>
 
-          {/* Subjects with access */}
+          {/* Upcoming Tasks */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+            <UpcomingTasks tasks={tasks.slice(0, 4)} loading={loadingTasks} />
+          </div>
+
+          {/* Courses with access */}
           <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
             <p className="text-sm font-semibold text-secondary-700 mb-3">
-              Subjects with access
+              Courses with access
             </p>
             {subjects.length === 0 ? (
               <p className="text-sm text-secondary-400 italic">
-                No subjects found.
+                No courses found.
               </p>
             ) : (
               <ul className="space-y-2">

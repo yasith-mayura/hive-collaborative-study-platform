@@ -55,7 +55,7 @@ export default function Resources() {
   const canManageResources = role === "admin" || role === "superadmin";
 
   const [loading, setLoading] = useState(true);
-  const [subject, setSubject] = useState(null);
+  const [course, setCourse] = useState(null);
   const [resources, setResources] = useState({
     past_papers: [],
     resource_books: [],
@@ -81,7 +81,7 @@ export default function Resources() {
     try {
       setLoading(true);
       const response = await getResourcesBySubject(subjectCode);
-      setSubject(response?.subject || null);
+      setCourse(response?.course || null);
       setResources({
         past_papers: response?.resources?.past_papers || [],
         resource_books: response?.resources?.resource_books || [],
@@ -290,7 +290,7 @@ export default function Resources() {
                       type="button"
                       onClick={() => handleDownload(resource.resourceId)}
                       disabled={downloadingResourceId === resource.resourceId}
-                      className="bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-300 rounded-md disabled:opacity-50"
+                      className="bg-primary-900 text-white px-3 py-2 text-sm font-medium rounded-md hover:bg-slate-800 transition disabled:opacity-50"
                     >
                       {downloadingResourceId === resource.resourceId ? "Loading..." : "Download"}
                     </button>
@@ -335,10 +335,10 @@ export default function Resources() {
           </button>
           <div>
             <h2 className="text-xl font-semibold text-gray-800">
-              {subject ? `${subject.subjectCode} - ${subject.subjectName}` : subjectCode}
+              {course ? `${course.subjectCode} - ${course.subjectName}` : subjectCode}
             </h2>
             <p className="text-sm text-gray-600 mt-1">
-              Level {subject?.level || "-"} | Semester {subject?.semester || "-"}
+              Level {course?.level || "-"} | Semester {course?.semester || "-"}
             </p>
           </div>
         </div>
@@ -354,7 +354,7 @@ export default function Resources() {
       </div>
 
       <div className="px-6 pt-4">
-        <p className="text-sm text-gray-600">{subject?.description || "No subject description provided."}</p>
+        <p className="text-sm text-gray-600">Resources available for this course.</p>
       </div>
 
       <div className="p-6 space-y-6">
@@ -491,7 +491,7 @@ export default function Resources() {
         </div>
       </Modal>
 
-      <SubjectAIChat subjectName={subject?.subjectName || "this subject"} />
+      <SubjectAIChat subjectName={course?.subjectName || "this course"} subjectCode={subjectCode} />
     </div>
   );
 }

@@ -2,50 +2,88 @@ const { v4: uuidv4 } = require('uuid');
 const { GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const axios = require('axios');
-const Subject = require('../models/Subject');
+const Course = require('../models/Course');
 const Resource = require('../models/Resource');
 const { s3Client } = require('../middleware/uploadMiddleware');
 
 const RAG_SERVICE_URL = process.env.RAG_SERVICE_URL || 'http://localhost:8000';
 const S3_BUCKET = process.env.S3_BUCKET_NAME || 'hive-study-resources';
+const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3001';
 
-// ═══════════════════════════════════════════════════════════════
-//  SUBJECT CONTROLLERS
-// ═══════════════════════════════════════════════════════════════
+const getAuthorizationHeader = (req) => req.headers.authorization || '';
 
-// POST /resources/subjects  (admin / superadmin)
-const createSubject = async (req, res) => {
+const getLevelAccessScope = async (req) => {
+  if (req.levelAccessScope) return req.levelAccessScope;
+
+  const role = req.user?.role || 'student';
+  if (role === 'superadmin') {
+    req.levelAccessScope = { hasRestriction: false, level: null };
+    return req.levelAccessScope;
+  }
+
   try {
-    const { subjectCode, subjectName, level, semester, description } = req.body;
-
-    if (!subjectCode || !subjectName || !level || !semester) {
-      return res.status(400).json({ message: 'subjectCode, subjectName, level and semester are required' });
-    }
-
-    const subject = new Subject({
-      subjectCode: subjectCode.toUpperCase(),
-      subjectName,
-      level,
-      semester,
-      description: description || '',
-      createdBy: req.user.uid,
+    const response = await axios.get(`${USER_SERVICE_URL}/api/batch-levels/me`, {
+      headers: { Authorization: getAuthorizationHeader(req) },
+      timeout: 10000,
     });
 
-    await subject.save();
-    return res.status(201).json({ message: 'Subject created', subject });
+    const level = Number(response?.data?.level);
+    if (!Number.isInteger(level)) {
+      throw new Error('Invalid level returned from user-service');
+    }
+
+    req.levelAccessScope = {
+      hasRestriction: true,
+      level,
+    };
+    return req.levelAccessScope;
   } catch (err) {
-    console.error('[createSubject]', err);
-    if (err.code === 11000) return res.status(400).json({ message: 'Subject code already exists' });
-    return res.status(500).json({ message: 'Server error' });
+    const status = err?.response?.status;
+    if (status === 404) {
+      const accessError = new Error('No level assignment found for your account');
+      accessError.statusCode = 403;
+      throw accessError;
+    }
+
+    const accessError = new Error('Unable to resolve your level access');
+    accessError.statusCode = status || 500;
+    throw accessError;
   }
+};
+
+const enforceCourseLevelAccess = async (req, course) => {
+  const scope = await getLevelAccessScope(req);
+  if (!scope.hasRestriction) return;
+
+  const courseLevel = Number(course?.level);
+  if (courseLevel !== scope.level) {
+    const error = new Error('Forbidden: this course is outside your assigned level');
+    error.statusCode = 403;
+    throw error;
+  }
+};
+
+const getAccessibleSubjectCodes = async (req) => {
+  const scope = await getLevelAccessScope(req);
+  if (!scope.hasRestriction) return null;
+
+  const courses = await Course.find({ isActive: true, level: scope.level }).select('subjectCode').lean();
+  return courses.map((course) => course.subjectCode);
 };
 
 // GET /resources/subjects  (all authenticated)
 const getAllSubjects = async (req, res) => {
   try {
-    const subjects = await Subject.find({ isActive: true }).sort({ level: 1, semester: 1, subjectCode: 1 });
-    return res.json({ count: subjects.length, subjects });
+    const scope = await getLevelAccessScope(req);
+    const query = { isActive: true };
+    if (scope.hasRestriction) query.level = scope.level;
+
+    const courses = await Course.find(query).sort({ level: 1, semester: 1, subjectCode: 1 });
+    return res.json({ count: courses.length, courses });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     console.error('[getAllSubjects]', err);
     return res.status(500).json({ message: 'Server error' });
   }
@@ -54,60 +92,24 @@ const getAllSubjects = async (req, res) => {
 // GET /resources/subjects/:subjectCode  (all authenticated)
 const getSubjectById = async (req, res) => {
   try {
-    const subject = await Subject.findOne({ subjectCode: req.params.subjectCode.toUpperCase(), isActive: true });
-    if (!subject) return res.status(404).json({ message: 'Subject not found' });
+    const course = await Course.findOne({ subjectCode: req.params.subjectCode.toUpperCase(), isActive: true });
+    if (!course) return res.status(404).json({ message: 'Course not found' });
+    await enforceCourseLevelAccess(req, course);
 
     // Attach resources grouped by type
-    const resources = await Resource.find({ subjectCode: subject.subjectCode, isActive: true }).select('-__v');
+    const resources = await Resource.find({ subjectCode: course.subjectCode, isActive: true }).select('-__v');
     const grouped = {
       past_papers: resources.filter(r => r.resourceType === 'past_paper'),
       resource_books: resources.filter(r => r.resourceType === 'resource_book'),
       notes: resources.filter(r => r.resourceType === 'note'),
     };
 
-    return res.json({ subject, resources: grouped });
+    return res.json({ course, resources: grouped });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     console.error('[getSubjectById]', err);
-    return res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// PUT /resources/subjects/:subjectCode  (admin / superadmin)
-const updateSubject = async (req, res) => {
-  try {
-    const { subjectName, level, semester, description } = req.body;
-
-    const subject = await Subject.findOne({ subjectCode: req.params.subjectCode.toUpperCase() });
-    if (!subject) return res.status(404).json({ message: 'Subject not found' });
-
-    if (subjectName) subject.subjectName = subjectName;
-    if (level) subject.level = level;
-    if (semester) subject.semester = semester;
-    if (description !== undefined) subject.description = description;
-
-    await subject.save();
-    return res.json({ message: 'Subject updated', subject });
-  } catch (err) {
-    console.error('[updateSubject]', err);
-    return res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// DELETE /resources/subjects/:subjectCode  (superadmin — soft delete)
-const deleteSubject = async (req, res) => {
-  try {
-    const subject = await Subject.findOne({ subjectCode: req.params.subjectCode.toUpperCase() });
-    if (!subject) return res.status(404).json({ message: 'Subject not found' });
-
-    subject.isActive = false;
-    await subject.save();
-
-    // Also soft-delete all resources belonging to this subject
-    await Resource.updateMany({ subjectCode: subject.subjectCode }, { isActive: false });
-
-    return res.json({ message: 'Subject and its resources soft-deleted', subjectCode: subject.subjectCode });
-  } catch (err) {
-    console.error('[deleteSubject]', err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
@@ -128,15 +130,16 @@ const uploadResource = async (req, res) => {
       return res.status(400).json({ message: 'subjectCode, resourceType and title are required' });
     }
 
-    // Verify subject exists
-    const subject = await Subject.findOne({ subjectCode: subjectCode.toUpperCase(), isActive: true });
-    if (!subject) return res.status(404).json({ message: `Subject ${subjectCode} not found` });
+    // Verify course exists
+    const course = await Course.findOne({ subjectCode: subjectCode.toUpperCase(), isActive: true });
+    if (!course) return res.status(404).json({ message: `Course ${subjectCode} not found` });
+    await enforceCourseLevelAccess(req, course);
 
     // Build resource document
     const resource = new Resource({
       resourceId: uuidv4(),
-      subjectCode: subject.subjectCode,
-      subjectName: subject.subjectName,
+      subjectCode: course.subjectCode,
+      subjectName: course.subjectName,
       resourceType,
       title,
       fileName: req.file.originalname,
@@ -165,7 +168,7 @@ const uploadResource = async (req, res) => {
       const ragRes = await axios.post(
         `${RAG_SERVICE_URL}/api/rag/ingest`,
         ragPayload,
-        { timeout: 10000 }
+        { timeout: 120000 }
       );
 
       if (ragRes.status === 200 || ragRes.status === 202) {
@@ -184,6 +187,9 @@ const uploadResource = async (req, res) => {
       resource,
     });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     console.error('[uploadResource]', err);
     return res.status(500).json({ message: 'Server error' });
   }
@@ -193,8 +199,9 @@ const uploadResource = async (req, res) => {
 const getResourcesBySubject = async (req, res) => {
   try {
     const subjectCode = req.params.subjectCode.toUpperCase();
-    const subject = await Subject.findOne({ subjectCode, isActive: true });
-    if (!subject) return res.status(404).json({ message: 'Subject not found' });
+    const course = await Course.findOne({ subjectCode, isActive: true });
+    if (!course) return res.status(404).json({ message: 'Course not found' });
+    await enforceCourseLevelAccess(req, course);
 
     const resources = await Resource.find({ subjectCode, isActive: true })
       .select('-__v -s3Key')
@@ -208,11 +215,14 @@ const getResourcesBySubject = async (req, res) => {
     };
 
     return res.json({
-      subject,
+      course,
       totalResources: resources.length,
       resources: grouped,
     });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     console.error('[getResourcesBySubject]', err);
     return res.status(500).json({ message: 'Server error' });
   }
@@ -223,8 +233,16 @@ const getResourceById = async (req, res) => {
   try {
     const resource = await Resource.findOne({ resourceId: req.params.resourceId, isActive: true }).select('-__v -s3Key');
     if (!resource) return res.status(404).json({ message: 'Resource not found' });
+
+    const course = await Course.findOne({ subjectCode: resource.subjectCode, isActive: true });
+    if (!course) return res.status(404).json({ message: 'Course not found for this resource' });
+    await enforceCourseLevelAccess(req, course);
+
     return res.json(resource);
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     console.error('[getResourceById]', err);
     return res.status(500).json({ message: 'Server error' });
   }
@@ -235,6 +253,10 @@ const downloadResource = async (req, res) => {
   try {
     const resource = await Resource.findOne({ resourceId: req.params.resourceId, isActive: true });
     if (!resource) return res.status(404).json({ message: 'Resource not found' });
+
+    const course = await Course.findOne({ subjectCode: resource.subjectCode, isActive: true });
+    if (!course) return res.status(404).json({ message: 'Course not found for this resource' });
+    await enforceCourseLevelAccess(req, course);
 
     // Generate pre-signed URL (expires in 1 hour)
     const command = new GetObjectCommand({
@@ -256,6 +278,9 @@ const downloadResource = async (req, res) => {
       expiresIn: 3600,
     });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     console.error('[downloadResource]', err);
     return res.status(500).json({ message: 'Server error' });
   }
@@ -267,6 +292,10 @@ const deleteResource = async (req, res) => {
     const resource = await Resource.findOne({ resourceId: req.params.resourceId });
     if (!resource) return res.status(404).json({ message: 'Resource not found' });
 
+    const course = await Course.findOne({ subjectCode: resource.subjectCode, isActive: true });
+    if (!course) return res.status(404).json({ message: 'Course not found for this resource' });
+    await enforceCourseLevelAccess(req, course);
+
     // Soft delete in MongoDB
     resource.isActive = false;
     await resource.save();
@@ -275,7 +304,7 @@ const deleteResource = async (req, res) => {
     try {
       await axios.delete(
         `${RAG_SERVICE_URL}/api/rag/documents/${resource.resourceId}`,
-        { timeout: 5000 }
+        { timeout: 30000 }
       );
       console.log(`[RAG] Embeddings deletion requested for ${resource.resourceId}`);
     } catch (ragErr) {
@@ -287,6 +316,9 @@ const deleteResource = async (req, res) => {
       resourceId: resource.resourceId,
     });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     console.error('[deleteResource]', err);
     return res.status(500).json({ message: 'Server error' });
   }
@@ -295,6 +327,12 @@ const deleteResource = async (req, res) => {
 // GET /resources/stats  (admin / superadmin)
 const getResourceStats = async (req, res) => {
   try {
+    const accessibleSubjectCodes = await getAccessibleSubjectCodes(req);
+    const matchFilter = { isActive: true };
+    if (accessibleSubjectCodes) {
+      matchFilter.subjectCode = { $in: accessibleSubjectCodes };
+    }
+
     const [
       totalResources,
       embeddedCount,
@@ -303,21 +341,21 @@ const getResourceStats = async (req, res) => {
       topDownloaded,
     ] = await Promise.all([
       // Total active resources
-      Resource.countDocuments({ isActive: true }),
+      Resource.countDocuments(matchFilter),
 
       // Embedded count
-      Resource.countDocuments({ isActive: true, isEmbedded: true }),
+      Resource.countDocuments({ ...matchFilter, isEmbedded: true }),
 
       // Count by resource type
       Resource.aggregate([
-        { $match: { isActive: true } },
+        { $match: matchFilter },
         { $group: { _id: '$resourceType', count: { $sum: 1 }, totalDownloads: { $sum: '$downloadCount' } } },
         { $sort: { count: -1 } },
       ]),
 
       // Downloads per subject
       Resource.aggregate([
-        { $match: { isActive: true } },
+        { $match: matchFilter },
         {
           $group: {
             _id: '$subjectCode',
@@ -330,7 +368,7 @@ const getResourceStats = async (req, res) => {
       ]),
 
       // Top 5 most downloaded
-      Resource.find({ isActive: true })
+      Resource.find(matchFilter)
         .sort({ downloadCount: -1 })
         .limit(5)
         .select('resourceId title fileName subjectCode subjectName resourceType downloadCount'),
@@ -345,18 +383,18 @@ const getResourceStats = async (req, res) => {
       topDownloaded,
     });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     console.error('[getResourceStats]', err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
 
 module.exports = {
-  // Subjects
-  createSubject,
+  // Courses
   getAllSubjects,
   getSubjectById,
-  updateSubject,
-  deleteSubject,
   // Resources
   uploadResource,
   getResourcesBySubject,

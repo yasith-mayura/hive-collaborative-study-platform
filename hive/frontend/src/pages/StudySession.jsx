@@ -7,12 +7,15 @@ import {
   deleteSession,
   getAllSessions,
   getCurrentMonthSessions,
+  getAllCourses,
   getSessionById,
   getSessionsByMonth,
   updateSession,
 } from "@/services";
 import { useAuth } from "@/context/AuthContext";
+import { getSubjectColor } from "@/lib/colors";
 import Modal from "@/components/ui/Modal";
+import UpcomingTasks from "@/components/UpcomingTasks";
 import { toast } from "react-toastify";
 
 const localizer = momentLocalizer(moment);
@@ -27,15 +30,6 @@ const SESSION_TYPES = [
   "Other",
 ];
 
-const PASTEL_COLORS = [
-  { bg: "#FFF4CC", text: "#4D3D00", border: "#FFCC00" },
-  { bg: "#EAF9EE", text: "#205D3A", border: "#50C793" },
-  { bg: "#EAF8FF", text: "#0D4B66", border: "#0CE7FA" },
-  { bg: "#FFEFF4", text: "#7A3650", border: "#F68B8D" },
-  { bg: "#F1F4F7", text: "#475569", border: "#A0A4A7" },
-  { bg: "#F4EEFF", text: "#50337A", border: "#BDA3FF" },
-  { bg: "#FFF1E8", text: "#7E4520", border: "#FA916B" },
-];
 
 const emptyForm = {
   subjectCode: "",
@@ -121,15 +115,6 @@ const combineSessionDateAndTime = (session) => {
 
 const sortByDateTimeAsc = (a, b) => combineSessionDateAndTime(a) - combineSessionDateAndTime(b);
 
-const getSubjectColor = (subjectCode = "") => {
-  const normalized = subjectCode.trim().toUpperCase();
-  let hash = 0;
-  for (let i = 0; i < normalized.length; i += 1) {
-    hash = (hash << 5) - hash + normalized.charCodeAt(i);
-    hash |= 0;
-  }
-  return PASTEL_COLORS[Math.abs(hash) % PASTEL_COLORS.length];
-};
 
 const isSameMonth = (dateValue, referenceDate) => {
   const sessionDate = toSriLankaDate(dateValue);
@@ -196,6 +181,7 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
   const [submitting, setSubmitting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
+  const [accessibleCourses, setAccessibleCourses] = useState([]);
 
   const applyUpsert = useCallback((session) => {
     setAllSessions((prev) => {
@@ -248,18 +234,20 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
     setError("");
 
     try {
-      const [all, currentMonth] = await Promise.all([
+      const [all, currentMonth, courses] = await Promise.all([
         getAllSessions(),
         getCurrentMonthSessions(),
+        isAdmin ? getAllCourses() : Promise.resolve({ courses: [] }),
       ]);
       setAllSessions((all || []).filter(isFutureOrToday).sort(sortByDateTimeAsc));
       setMonthSessions((currentMonth || []).filter(isFutureOrToday).sort(sortByDateTimeAsc));
+      setAccessibleCourses(courses?.courses || []);
     } catch (requestError) {
       setError(requestError?.response?.data?.message || "Failed to load study sessions.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     loadInitialData();
@@ -345,6 +333,11 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
       return;
     }
 
+    if (!isAllowedSubjectCode(createForm.subjectCode)) {
+      toast.error("Please select a course from your accessible level.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const created = await createSession({
@@ -354,6 +347,7 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
         description: createForm.description.trim(),
         date: createForm.date,
         time: formattedTime,
+        batch: selectedCourse?.level ?? null,
       });
 
       applyUpsert(created);
@@ -375,6 +369,11 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
 
     if (!formattedTime) {
       toast.error("Please select a valid time.");
+      return;
+    }
+
+    if (!isAllowedSubjectCode(editForm.subjectCode)) {
+      toast.error("Please select a course from your accessible level.");
       return;
     }
 
@@ -435,13 +434,37 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
     setEditForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const selectedCourse = useMemo(
+    () => accessibleCourses.find((course) => course.subjectCode === createForm.subjectCode.trim().toUpperCase()),
+    [accessibleCourses, createForm.subjectCode]
+  );
+
+  const isAllowedSubjectCode = useCallback(
+    (subjectCode) => {
+      if (!isAdmin) return true;
+
+      const normalizedCode = String(subjectCode || "").trim().toUpperCase();
+      return accessibleCourses.some((course) => course.subjectCode === normalizedCode);
+    },
+    [accessibleCourses, isAdmin]
+  );
+
+  const subjectCodeOptions = useMemo(
+    () => accessibleCourses.map((course) => ({
+      subjectCode: course.subjectCode,
+      subjectName: course.subjectName,
+      level: course.level,
+      semester: course.semester,
+    })),
+    [accessibleCourses]
+  );
+
   return (
     <div className="min-h-screen bg-primary">
-      <div className="flex flex-col xl:flex-row gap-4 p-4">
+      <div className={`p-4 grid grid-cols-1 gap-6 ${isUpcomingTasks ? "lg:grid-cols-3" : "lg:grid-cols-1"}`}>
         {/* Calendar Section */}
         <div
-          className={`w-full bg-white rounded-xl border border-gray-200 p-6 shadow-sm ${isUpcomingTasks ? "xl:w-4/5" : "xl:w-full"
-            }`}
+          className={`bg-white rounded-xl border border-gray-200 p-6 shadow-sm ${isUpcomingTasks ? "lg:col-span-2" : ""}`}
         >
           <div className="flex items-center justify-between gap-3 mb-6">
             {isUpcomingTasks && (
@@ -586,36 +609,12 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
 
         {/* Upcoming Tasks Sidebar */}
         {isUpcomingTasks && (
-          <div className="w-full xl:w-1/5 bg-white rounded-xl border border-gray-200 p-6 shadow-sm max-h-[760px] flex flex-col">
-            <h3 className="font-bold text-lg mb-5 text-gray-800">
-              Upcoming Tasks
-            </h3>
-            <div className="space-y-4 overflow-y-auto pr-1">
-              {upcomingSessions.map((task) => (
-                <button
-                  type="button"
-                  key={task._id}
-                  className="w-full text-left bg-gray-50 p-4 rounded-lg border-l-[6px] border-primary-500 shadow-sm hover:bg-primary-50 transition"
-                  onClick={() => openSessionDetails(task._id)}
-                >
-                  <p className="font-semibold text-base text-gray-900">
-                    {task.topic}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {formatDdMmYyyy(task.date)} • {task.time}
-                  </p>
-                  <span className="inline-block mt-2 text-xs bg-primary-100 text-primary-900 px-2 py-1 rounded-md font-medium">
-                    {task.type}
-                  </span>
-                </button>
-              ))}
-
-              {upcomingSessions.length === 0 && (
-                <p className="text-gray-500 text-sm leading-6">
-                  No upcoming sessions.
-                </p>
-              )}
-            </div>
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm h-fit">
+            <UpcomingTasks
+              tasks={upcomingSessions}
+              loading={loading}
+              onTaskClick={(task) => openSessionDetails(task._id)}
+            />
           </div>
         )}
       </div>
@@ -631,14 +630,40 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
         <form onSubmit={handleCreateSession} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Subject Code</label>
-            <input
-              type="text"
-              required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"
-              placeholder="e.g. SENG 41283"
-              value={createForm.subjectCode}
-              onChange={(e) => updateCreateForm("subjectCode", e.target.value)}
-            />
+            {isAdmin ? (
+              <>
+                <select
+                  required
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border bg-white"
+                  value={createForm.subjectCode}
+                  onChange={(e) => updateCreateForm("subjectCode", e.target.value)}
+                >
+                  <option value="">Select a course</option>
+                  {subjectCodeOptions.map((course) => (
+                    <option key={course.subjectCode} value={course.subjectCode}>
+                      {course.subjectCode} - {course.subjectName} (Level {course.level}, Semester {course.semester})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Choose from courses available to your assigned level.
+                </p>
+              </>
+            ) : (
+              <input
+                type="text"
+                required
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm px-3 py-2 border"
+                placeholder="e.g. SENG 41283"
+                value={createForm.subjectCode}
+                onChange={(e) => updateCreateForm("subjectCode", e.target.value)}
+              />
+            )}
+            {selectedCourse && (
+              <p className="text-xs text-primary-700 mt-1">
+                {selectedCourse.subjectName} · Level {selectedCourse.level} · Semester {selectedCourse.semester}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Topic</label>

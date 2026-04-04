@@ -1,7 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Icon from "@/components/ui/Icon";
 
-const AdminProfile = ({ admin, onClose, onDelete, onUpdate }) => {
+const BUTTON_COLORS = {
+  primary: { backgroundColor: "#DDF2FF", color: "#0A435B", border: "1px solid #00BFD8" },
+  warning: { backgroundColor: "#FBEAB4", color: "#4A3A00", border: "1px solid #D9A900" },
+  danger: { backgroundColor: "#F9DEE8", color: "#6F2F47", border: "1px solid #E07C9C" },
+};
+
+const AdminProfile = ({ admin, onClose, onDelete, onDemote, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: admin?.name || "",
@@ -86,9 +92,17 @@ const AdminProfile = ({ admin, onClose, onDelete, onUpdate }) => {
       <div className="flex items-center gap-3 mt-8 pt-4 border-t">
         <button
           onClick={() => onDelete(admin?.studentNumber)}
-          className="px-6 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition cursor-pointer"
+          className="px-6 py-2 text-sm font-medium rounded-md transition-opacity hover:opacity-90 cursor-pointer"
+          style={BUTTON_COLORS.danger}
         >
           Deactivate Admin
+        </button>
+        <button
+          onClick={() => onDemote?.(admin?.studentNumber)}
+          className="px-6 py-2 text-sm font-medium rounded-md transition-opacity hover:opacity-90 cursor-pointer"
+          style={BUTTON_COLORS.warning}
+        >
+          Demote to User
         </button>
         <button
           onClick={() => {
@@ -98,7 +112,8 @@ const AdminProfile = ({ admin, onClose, onDelete, onUpdate }) => {
               setIsEditing(true);
             }
           }}
-          className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition cursor-pointer"
+          className="px-6 py-2 text-sm font-medium rounded-md transition-opacity hover:opacity-90 cursor-pointer"
+          style={BUTTON_COLORS.primary}
         >
           {isEditing ? "Save" : "Update"}
         </button>

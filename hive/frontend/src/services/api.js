@@ -173,6 +173,17 @@ export const promoteUserToAdmin = async (studentNumber) => {
   return response.data;
 };
 
+export const demoteAdminToUser = async (studentNumber) => {
+  const response = await instance.userService.post(
+    `/api/admins/demote/${encodeURIComponent(studentNumber)}`,
+    {},
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};
+
 export const deleteAdmin = async (studentNumber) => {
   const response = await instance.userService.delete(
     `/api/admins/${encodeURIComponent(studentNumber)}`,
@@ -201,6 +212,45 @@ export const updateAdmin = async (
   return response.data;
 };
 
+export const getBatchLevels = async () => {
+  const response = await instance.userService.get(`/api/batch-levels`, {
+    headers: instance.defaultHeaders(),
+  });
+  return response.data;
+};
+
+export const getBatchLevelBatches = async () => {
+  const response = await instance.userService.get(`/api/batch-levels/batches`, {
+    headers: instance.defaultHeaders(),
+  });
+  return response.data;
+};
+
+export const getMyAssignedLevel = async () => {
+  const response = await instance.userService.get(`/api/batch-levels/me`, {
+    headers: instance.defaultHeaders(),
+  });
+  return response.data;
+};
+
+export const assignBatchLevel = async ({ batch, level, confirmReplace = false }) => {
+  const response = await instance.userService.post(
+    `/api/batch-levels`,
+    { batch, level, confirmReplace },
+    {
+      headers: instance.defaultHeaders(),
+    }
+  );
+  return response.data;
+};
+
+export const removeBatchLevel = async (batch) => {
+  const response = await instance.userService.delete(`/api/batch-levels/${encodeURIComponent(batch)}`, {
+    headers: instance.defaultHeaders(),
+  });
+  return response.data;
+};
+
 //User Service APIs end
 
 
@@ -211,21 +261,16 @@ export const updateAdmin = async (
 
 
 
-export const createSubject = async (subjectData) => {
-  const response = await instance.resourceService.post(`/resources/subjects`, subjectData, {
-    headers: instance.defaultHeaders()
-  });
-  return response.data;
-};
-
-export const getAllSubjects = async () => {
+export const getAllCourses = async () => {
   const response = await instance.resourceService.get(`/resources/subjects`, {
     headers: instance.defaultHeaders()
   });
   return response.data;
 };
 
-export const getSubjectResources = async (subjectId) => {
+export const getAllSubjects = getAllCourses;
+
+export const getCourseResources = async (subjectId) => {
   const response = await instance.resourceService.get(`/resources/subjects/${encodeURIComponent(subjectId)}`, {
     headers: instance.defaultHeaders()
   });
@@ -266,15 +311,95 @@ export const getBatchChatHistory = async (batch) => {
 //Note Service APIs begin
 
 //--------------Notes------------------
+export const getNotes = async () => {
+  const response = await instance.noteService.get(`/api/notes`, {
+    headers: instance.defaultHeaders()
+  });
+  return response.data;
+};
 
+export const createNote = async ({ content, isVoiceNote, title }) => {
+  const response = await instance.noteService.post(
+    `/api/notes/create`,
+    { content, isVoiceNote, title },
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};
 
+export const deleteNote = async (id) => {
+  const response = await instance.noteService.delete(
+    `/api/notes/delete/${encodeURIComponent(id)}`,
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};
 
+export const updateNote = async (id, { content, title }) => {
+  const response = await instance.noteService.put(
+    `/api/notes/update/${encodeURIComponent(id)}`,
+    { content, title },
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};
+//Note APIs end
+
+//--------------Flashcards------------------
+
+export const getFlashCardDecks = async () => {
+  const response = await instance.noteService.get(`/api/notes/flashcards`, {
+    headers: instance.defaultHeaders()
+  });
+  return response.data;
+};
+
+export const createFlashCardDeck = async ({ name, cards }) => {
+  const response = await instance.noteService.post(
+    `/api/notes/flashcards`,
+    { name, cards },
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};  
+
+export const updateFlashCardDeck = async (id, { name, cards }) => {
+  const response = await instance.noteService.put(
+    `/api/notes/flashcards/${encodeURIComponent(id)}`,
+    { name, cards },
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};
+
+export const deleteFlashCardDeck = async (id) => {
+  const response = await instance.noteService.delete(
+    `/api/notes/flashcards/${encodeURIComponent(id)}`,
+    {
+      headers: instance.defaultHeaders()
+    },
+  );
+  return response.data;
+};
+//Flashcard APIs end
 
 //Note Service APIs end
 
+
+
 //Progress Service APIs begin
 
-//--------------Progress------------------
+//--------------Progress-----------------------
 
 
 
@@ -387,7 +512,7 @@ export const getSessionById = async (id) => {
 
 //--------------Admin-only Session APIs------------------//
 
-export const createSession = async ({ subjectCode, type, topic, description, date, time }) => {
+export const createSession = async ({ subjectCode, type, topic, description, date, time, batch }) => {
   return sessionPostWithFallback(
     `/api/sessions`,
     `/api/studysession/create`,
@@ -398,6 +523,7 @@ export const createSession = async ({ subjectCode, type, topic, description, dat
       description,
       date,
       time,
+      batch,
     }
   );
 };

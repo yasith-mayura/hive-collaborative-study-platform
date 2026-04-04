@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   LineChart,
   Line,
@@ -6,12 +6,24 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 import Icon from "@/components/ui/Icon";
+import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
+import Notification from "@/components/ui/Notification";
+import { useAuth } from "@/context/AuthContext";
+import {
+  addSemester,
+  deleteSemester,
+  getCourses,
+  getProgress,
+  getProgressByUserId,
+  getProgressSummary,
+  updateSemester,
+} from "@/services";
 
-// Grade to GPA mapping
 const GRADE_MAP = {
   "A+": 4.0,
   A: 4.0,
@@ -29,25 +41,379 @@ const GRADE_MAP = {
 
 const GRADE_OPTIONS = Object.keys(GRADE_MAP);
 
-// Sample semester history
-const initialSemesterData = [
-  { semester: "1/1", gpa: 3.65 },
-  { semester: "1/2", gpa: 2.7 },
-  { semester: "2/1", gpa: 2.85 },
-  { semester: "2/2", gpa: 3.4 },
-  { semester: "3/1", gpa: 3.2 },
-  { semester: "3/2", gpa: 3.55 },
-  { semester: "4/1", gpa: 3.45 },
-];
+const emptySemesterForm = {
+  yearLevel: "",
+  semester: "",
+  selectedCourseCodes: [],
+  courseGrades: {},
+};
+
+const round2 = (value) => Number((value || 0).toFixed(2));
+const toStoredYear = (yearLevel) => `Y${Number(yearLevel)}`;
+
+const getErrorMessage = (error, fallbackMessage) => {
+  const status = error?.response?.status;
+
+  if (status === 401) return "Session expired. Please login again.";
+  if (status === 403) return "You do not have permission.";
+  if (status === 404) return "No progress data found.";
+  if (status === 500) return "Server error. Please try again.";
+
+  return error?.response?.data?.message || fallbackMessage;
+};
+
+const getGradeColorClass = (grade = "") => {
+  if (grade.startsWith("A")) return "text-success-500";
+  if (grade.startsWith("B")) return "text-info-700";
+  if (grade.startsWith("C")) return "text-warning-600";
+  if (grade === "D" || grade === "D+") return "text-warning-700";
+  return "text-danger-500";
+};
+
+const getGpaColorClass = (gpa) => {
+  if (gpa >= 3.5) return "text-success-500";
+  if (gpa >= 2.5) return "text-warning-600";
+  return "text-danger-500";
+};
+
+const calculatePreview = (modules = []) => {
+  const normalized = modules
+    .map((module) => ({
+      ...module,
+      creditHours: Number(module.creditHours),
+      gradePoints: GRADE_MAP[module.grade],
+    }))
+    .filter(
+      (module) =>
+        module.moduleCode.trim() &&
+        module.moduleName.trim() &&
+        module.creditHours > 0 &&
+        typeof module.gradePoints === "number"
+    );
+
+  const totalCredits = normalized.reduce((sum, module) => sum + module.creditHours, 0);
+  const totalWeighted = normalized.reduce(
+    (sum, module) => sum + module.gradePoints * module.creditHours,
+    0
+  );
+
+  return {
+    totalCredits,
+    semesterGPA: totalCredits > 0 ? round2(totalWeighted / totalCredits) : 0,
+  };
+};
+
+const parseYearStart = (year) => {
+  const yearLevelMatch = String(year || "").trim().match(/^Y([1-4])$/i);
+  if (yearLevelMatch) return Number(yearLevelMatch[1]);
+
+  const parsed = Number((year || "").split("/")[0]);
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const displayYear = (year) => {
+  const yearLevelMatch = String(year || "").trim().match(/^Y([1-4])$/i);
+  if (yearLevelMatch) return `Year ${yearLevelMatch[1]}`;
+  return year;
+};
+
+const sortSemesters = (semesters = []) => {
+  return [...semesters].sort((a, b) => {
+    const byYear = parseYearStart(a.year) - parseYearStart(b.year);
+    if (byYear !== 0) return byYear;
+    return Number(a.semester) - Number(b.semester);
+  });
+};
+
+const withDefaultProgress = (data) => ({
+  userId: data?.userId || "",
+  studentNumber: data?.studentNumber || "",
+  semesters: sortSemesters(data?.semesters || []),
+  cumulativeGPA: data?.cumulativeGPA || 0,
+});
+
+const formatTrend = (semesters = []) => {
+  const sorted = sortSemesters(semesters);
+  const baseYear = sorted.length > 0 ? parseYearStart(sorted[0].year) : 0;
+
+  let runningWeightedPoints = 0;
+  let runningCredits = 0;
+
+  return sorted.map((semester) => {
+    const modules = semester.modules || [];
+    const semesterCredits = Number(semester.totalCredits || 0);
+    const moduleWeightedPoints = modules.reduce(
+      (sum, module) => sum + Number(module.gradePoints || 0) * Number(module.creditHours || 0),
+      0
+    );
+    const semesterWeightedPoints = moduleWeightedPoints || Number(semester.semesterGPA || 0) * semesterCredits;
+
+    runningWeightedPoints += semesterWeightedPoints;
+    runningCredits += semesterCredits;
+
+    return {
+      ...semester,
+      label: `Y${Math.max(parseYearStart(semester.year) - baseYear + 1, 1)}S${semester.semester}`,
+      gpa: runningCredits > 0 ? round2(runningWeightedPoints / runningCredits) : 0,
+      credits: semester.totalCredits,
+    };
+  });
+};
+
+function SemesterModal({
+  isOpen,
+  title,
+  form,
+  setForm,
+  availableCourses,
+  isCoursesLoading,
+  onClose,
+  onSubmit,
+  isSaving,
+}) {
+  const compulsoryCourses = useMemo(
+    () => availableCourses.filter((course) => course.status === "compulsory"),
+    [availableCourses]
+  );
+  const optionalCourses = useMemo(
+    () => availableCourses.filter((course) => course.status === "optional"),
+    [availableCourses]
+  );
+  const specialisationCourses = useMemo(
+    () => availableCourses.filter((course) => course.status === "specialisation"),
+    [availableCourses]
+  );
+
+  const selectedCodes = form.selectedCourseCodes || [];
+  const grades = form.courseGrades || {};
+
+  const selectedCourses = useMemo(() => {
+    const selectedSet = new Set(selectedCodes);
+    return availableCourses.filter((course) => selectedSet.has(course.subjectCode));
+  }, [availableCourses, selectedCodes]);
+
+  const preview = useMemo(
+    () =>
+      calculatePreview(
+        selectedCourses.map((course) => ({
+          moduleCode: course.subjectCode,
+          moduleName: course.subjectName,
+          creditHours: course.creditHours,
+          grade: grades[course.subjectCode] || "",
+        }))
+      ),
+    [selectedCourses, grades]
+  );
+
+  const specialisationByTrack = useMemo(() => {
+    return specialisationCourses.reduce((acc, course) => {
+      const key = course.specialisationTrack || "Other";
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(course);
+      return acc;
+    }, {});
+  }, [specialisationCourses]);
+
+  const setField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  const toggleCourseSelection = (courseCode) => {
+    setForm((prev) => {
+      const exists = prev.selectedCourseCodes.includes(courseCode);
+      const selectedCourseCodes = exists
+        ? prev.selectedCourseCodes.filter((code) => code !== courseCode)
+        : [...prev.selectedCourseCodes, courseCode];
+
+      const nextGrades = { ...prev.courseGrades };
+      if (exists) delete nextGrades[courseCode];
+
+      return {
+        ...prev,
+        selectedCourseCodes,
+        courseGrades: nextGrades,
+      };
+    });
+  };
+
+  const updateCourseGrade = (courseCode, grade) => {
+    setForm((prev) => ({
+      ...prev,
+      courseGrades: {
+        ...prev.courseGrades,
+        [courseCode]: grade,
+      },
+    }));
+  };
+
+  const renderCourseRow = (course, forceSelected = false) => {
+    const hasGrade = Boolean(grades[course.subjectCode]);
+    const isSelected = forceSelected || selectedCodes.includes(course.subjectCode) || hasGrade;
+
+    const handleGradeChange = (value) => {
+      if (!forceSelected) {
+        if (value && !selectedCodes.includes(course.subjectCode)) {
+          toggleCourseSelection(course.subjectCode);
+        }
+
+        if (!value && selectedCodes.includes(course.subjectCode)) {
+          toggleCourseSelection(course.subjectCode);
+          return;
+        }
+      }
+
+      updateCourseGrade(course.subjectCode, value);
+    };
+
+    return (
+      <div
+        key={course.subjectCode}
+        className="grid grid-cols-12 gap-2 items-center py-2 border-b border-slate-100 last:border-b-0"
+      >
+        <div className="col-span-1">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={isSelected}
+            disabled={forceSelected}
+            onChange={() => toggleCourseSelection(course.subjectCode)}
+          />
+        </div>
+        <div className="col-span-5 text-sm text-secondary-800">
+          <p className="font-medium">{course.subjectCode}</p>
+          <p className="text-xs text-secondary-500">{course.subjectName}</p>
+        </div>
+        <div className="col-span-2 text-sm text-secondary-700">{course.creditHours} Credits</div>
+        <div className="col-span-4">
+          <select
+            className="form-control"
+            value={grades[course.subjectCode] || ""}
+            onChange={(e) => handleGradeChange(e.target.value)}
+          >
+            <option value="">Select Grade</option>
+            {GRADE_OPTIONS.map((grade) => (
+              <option key={grade} value={grade}>
+                {grade}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+    );
+  };
+
+  const footerContent = (
+    <>
+      <Button text="Cancel" className="btn-outline-secondary" onClick={onClose} />
+      <Button
+        text="Save Results"
+        className="btn-primary"
+        onClick={onSubmit}
+        isLoading={isSaving}
+        disabled={isSaving}
+      />
+    </>
+  );
+
+  return (
+    <Modal
+      activeModal={isOpen}
+      onClose={onClose}
+      title={title}
+      className="max-w-5xl"
+      footerContent={footerContent}
+      scrollContent
+      centered
+    >
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="fromGroup">
+            <label className="form-label">Year</label>
+            <select
+              className="form-control"
+              value={form.yearLevel}
+              onChange={(e) => setField("yearLevel", Number(e.target.value))}
+            >
+              <option value="">Select Year</option>
+              <option value={1}>Year 1</option>
+              <option value={2}>Year 2</option>
+              <option value={3}>Year 3</option>
+              <option value={4}>Year 4</option>
+            </select>
+          </div>
+          <div className="fromGroup">
+            <label className="form-label">Semester</label>
+            <select
+              className="form-control"
+              value={form.semester}
+              onChange={(e) => setField("semester", Number(e.target.value))}
+            >
+              <option value="">Select Semester</option>
+              <option value={1}>Semester 1</option>
+              <option value={2}>Semester 2</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {isCoursesLoading ? (
+            <div className="flex justify-center items-center h-24 border border-slate-200 rounded-md">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
+            </div>
+          ) : (
+            <>
+              {compulsoryCourses.length > 0 && (
+                <div className="border border-slate-200 rounded-md p-3 bg-slate-50">
+                  <h3 className="text-sm font-semibold text-secondary-800 mb-2">Compulsory Courses</h3>
+                  {compulsoryCourses.map((course) => renderCourseRow(course, true))}
+                </div>
+              )}
+
+              {optionalCourses.length > 0 && (
+                <div className="border border-slate-200 rounded-md p-3">
+                  <h3 className="text-sm font-semibold text-secondary-800 mb-2">Optional Courses</h3>
+                  {optionalCourses.map((course) => renderCourseRow(course))}
+                </div>
+              )}
+
+              {Object.keys(specialisationByTrack).length > 0 && (
+                <div className="border border-slate-200 rounded-md p-3">
+                  <h3 className="text-sm font-semibold text-secondary-800 mb-2">Specialisation Courses</h3>
+                  {Object.entries(specialisationByTrack).map(([track, courses]) => (
+                    <div key={track} className="mb-3 last:mb-0">
+                      <p className="text-xs font-medium uppercase text-secondary-500 mb-1">{track}</p>
+                      {courses.map((course) => renderCourseRow(course))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {selectedCourses.length > 0 && (
+          <div className="bg-slate-50 border border-slate-200 rounded-md p-4">
+            <p className="text-sm text-secondary-700 font-medium">
+              Semester GPA: <span className="text-secondary-900">{preview.semesterGPA.toFixed(2)}</span>
+            </p>
+            <p className="text-sm text-secondary-700 font-medium mt-1">
+              Total Credits: <span className="text-secondary-900">{preview.totalCredits}</span>
+            </p>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
+    const point = payload[0]?.payload;
     return (
       <div className="bg-white px-3 py-2 rounded-lg shadow-md border border-gray-100">
         <p className="text-xs text-secondary-500">{label}</p>
         <p className="text-sm font-semibold text-secondary-800">
           GPA: {payload[0].value.toFixed(2)}
         </p>
+        <p className="text-xs text-secondary-500">Credits: {point?.credits || 0}</p>
       </div>
     );
   }
@@ -55,260 +421,723 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function ProgressTracker() {
-  const [semesterData, setSemesterData] = useState(initialSemesterData);
-  const [modules, setModules] = useState([
-    { name: "", grade: "", credits: 3 },
-    { name: "", grade: "", credits: 3 },
-    { name: "", grade: "", credits: 3 },
-  ]);
-  const [calculatedGpa, setCalculatedGpa] = useState(null);
+  const { role, viewMode, user } = useAuth();
+  const isPrivilegedRole = role === "admin" || role === "superadmin";
+  const isAdminUser = isPrivilegedRole && viewMode !== "student";
 
-  const currentGpa =
-    semesterData.length > 0
-      ? semesterData[semesterData.length - 1].gpa
-      : 0;
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleModuleChange = (index, field, value) => {
-    const updated = [...modules];
-    updated[index][field] = field === "credits" ? Number(value) || 0 : value;
-    setModules(updated);
-  };
+  const [summaryList, setSummaryList] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
-  const handleAddModule = () => {
-    setModules([...modules, { name: "", grade: "", credits: 3 }]);
-  };
+  const [progress, setProgress] = useState(withDefaultProgress());
+  const [summary, setSummary] = useState({
+    currentGPA: 0,
+    highestSemesterGPA: 0,
+    lowestSemesterGPA: 0,
+    totalCreditsCompleted: 0,
+    totalSemestersRecorded: 0,
+  });
 
-  const handleRemoveModule = (index) => {
-    if (modules.length > 1) {
-      setModules(modules.filter((_, i) => i !== index));
+  const [expandedIds, setExpandedIds] = useState({});
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editSemesterId, setEditSemesterId] = useState("");
+  const [semesterForm, setSemesterForm] = useState(emptySemesterForm);
+  const [availableCourses, setAvailableCourses] = useState([]);
+
+  const [targetGPA, setTargetGPA] = useState("");
+  const [plannedCredits, setPlannedCredits] = useState("");
+  const [gpaAdvice, setGpaAdvice] = useState("");
+
+  const canEdit = !isAdminUser;
+
+  const loadStudentProgress = async (userId) => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [progressResponse, summaryResponse] = await Promise.all([
+        userId ? getProgressByUserId(userId) : getProgress(),
+        getProgressSummary(userId),
+      ]);
+
+      const normalized = withDefaultProgress(progressResponse);
+      setProgress(normalized);
+      setSummary(summaryResponse || {});
+      setExpandedIds(
+        Object.fromEntries((normalized.semesters || []).map((semester) => [semester._id, false]))
+      );
+    } catch (requestError) {
+      if (requestError?.response?.status === 404) {
+        setProgress(withDefaultProgress());
+        setSummary({
+          currentGPA: 0,
+          highestSemesterGPA: 0,
+          lowestSemesterGPA: 0,
+          totalCreditsCompleted: 0,
+          totalSemestersRecorded: 0,
+        });
+      } else {
+        setError(getErrorMessage(requestError, "Failed to load progress data."));
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCalculateGpa = () => {
-    const validModules = modules.filter(
-      (m) => m.name.trim() && m.grade && m.credits > 0
+  const loadAdminSummary = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const response = await getProgress();
+      setSummaryList(response || []);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, "Failed to load progress summary."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdminUser) {
+      loadAdminSummary();
+      return;
+    }
+    const ownUserId = isPrivilegedRole ? user?.uid : undefined;
+    loadStudentProgress(ownUserId);
+  }, [isAdminUser, isPrivilegedRole, user?.uid]);
+
+  useEffect(() => {
+    const loadCoursesForSelection = async () => {
+      if (!(isAddModalOpen || isEditModalOpen)) return;
+      if (![1, 2, 3, 4].includes(Number(semesterForm.yearLevel))) {
+        setAvailableCourses([]);
+        return;
+      }
+      if (![1, 2].includes(Number(semesterForm.semester))) {
+        setAvailableCourses([]);
+        return;
+      }
+
+      try {
+        setLoadingCourses(true);
+        const response = await getCourses({
+          year: semesterForm.yearLevel,
+          semester: semesterForm.semester,
+        });
+
+        const courses = response?.courses || [];
+        const compulsoryCodes = courses
+          .filter((course) => course.status === "compulsory")
+          .map((course) => course.subjectCode);
+
+        setAvailableCourses(courses);
+        setSemesterForm((prev) => ({
+          ...prev,
+          selectedCourseCodes: Array.from(
+            new Set([...compulsoryCodes, ...(prev.selectedCourseCodes || [])])
+          ).filter((code) => courses.some((course) => course.subjectCode === code)),
+        }));
+      } catch (requestError) {
+        Notification.error(getErrorMessage(requestError, "Failed to load courses."));
+        setAvailableCourses([]);
+      } finally {
+        setLoadingCourses(false);
+      }
+    };
+
+    loadCoursesForSelection();
+  }, [isAddModalOpen, isEditModalOpen, semesterForm.yearLevel, semesterForm.semester]);
+
+  const trendData = useMemo(() => formatTrend(progress.semesters), [progress.semesters]);
+
+  const filteredSummary = useMemo(() => {
+    if (!searchQuery.trim()) return summaryList;
+
+    const needle = searchQuery.trim().toLowerCase();
+    return summaryList.filter(
+      (student) =>
+        student.studentName?.toLowerCase().includes(needle) ||
+        student.studentNumber?.toLowerCase().includes(needle)
     );
-    if (validModules.length === 0) return;
+  }, [searchQuery, summaryList]);
 
-    let totalPoints = 0;
-    let totalCredits = 0;
-    validModules.forEach((m) => {
-      const gradePoint = GRADE_MAP[m.grade] ?? 0;
-      totalPoints += gradePoint * m.credits;
-      totalCredits += m.credits;
+  const validationError = useMemo(() => {
+    if (![1, 2, 3, 4].includes(Number(semesterForm.yearLevel))) {
+      return "Year must be between 1 and 4.";
+    }
+    if (![1, 2].includes(Number(semesterForm.semester))) {
+      return "Semester must be either 1 or 2.";
+    }
+
+    const selectedCodes = semesterForm.selectedCourseCodes || [];
+    if (!selectedCodes.length) {
+      return "At least one course is required.";
+    }
+
+    const compulsoryCodes = availableCourses
+      .filter((course) => course.status === "compulsory")
+      .map((course) => course.subjectCode);
+
+    for (const compulsoryCode of compulsoryCodes) {
+      if (!selectedCodes.includes(compulsoryCode)) {
+        return "All compulsory courses must remain selected.";
+      }
+    }
+
+    for (const code of selectedCodes) {
+      const selectedGrade = semesterForm.courseGrades?.[code];
+      if (!Object.prototype.hasOwnProperty.call(GRADE_MAP, selectedGrade)) {
+        return "All selected courses must have a grade.";
+      }
+    }
+
+    const storedYear = toStoredYear(semesterForm.yearLevel);
+    const duplicate = progress.semesters.some(
+      (semester) =>
+        semester.year === storedYear &&
+        Number(semester.semester) === Number(semesterForm.semester) &&
+        semester._id !== editSemesterId
+    );
+
+    if (duplicate) {
+      return "Duplicate academic year and semester is not allowed.";
+    }
+
+    return "";
+  }, [semesterForm, progress.semesters, editSemesterId, availableCourses]);
+
+  const openAddModal = () => {
+    setSemesterForm(emptySemesterForm);
+    setAvailableCourses([]);
+    setEditSemesterId("");
+    setIsAddModalOpen(true);
+  };
+
+  const openEditModal = (semester) => {
+    const yearLevelMatch = String(semester.year || "").match(/^Y([1-4])$/i);
+    const inferredYearLevel = yearLevelMatch
+      ? Number(yearLevelMatch[1])
+      : Math.min(
+          4,
+          Math.max(
+            1,
+            sortSemesters(progress.semesters).findIndex((entry) => entry.year === semester.year) + 1
+          )
+        );
+
+    setSemesterForm({
+      yearLevel: inferredYearLevel,
+      semester: semester.semester,
+      selectedCourseCodes: (semester.modules || []).map((module) => module.moduleCode),
+      courseGrades: Object.fromEntries(
+        (semester.modules || []).map((module) => [module.moduleCode, module.grade])
+      ),
     });
-
-    const gpa = totalCredits > 0 ? totalPoints / totalCredits : 0;
-    setCalculatedGpa(parseFloat(gpa.toFixed(2)));
+    setAvailableCourses([]);
+    setEditSemesterId(semester._id);
+    setIsEditModalOpen(true);
   };
 
-  const handleSaveSemester = () => {
-    if (calculatedGpa === null) return;
-    const nextYear = Math.floor(semesterData.length / 2) + 1;
-    const nextSem = (semesterData.length % 2) + 1;
-    setSemesterData([
-      ...semesterData,
-      { semester: `${nextYear}/${nextSem}`, gpa: calculatedGpa },
-    ]);
-    setCalculatedGpa(null);
-    setModules([
-      { name: "", grade: "", credits: 3 },
-      { name: "", grade: "", credits: 3 },
-      { name: "", grade: "", credits: 3 },
-    ]);
+  const closeModals = () => {
+    setIsAddModalOpen(false);
+    setIsEditModalOpen(false);
+    setEditSemesterId("");
+    setSemesterForm(emptySemesterForm);
+    setAvailableCourses([]);
   };
+
+  const saveSemester = async () => {
+    if (validationError) {
+      Notification.error(validationError);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const payload = {
+        year: toStoredYear(semesterForm.yearLevel),
+        semester: Number(semesterForm.semester),
+        modules: (semesterForm.selectedCourseCodes || []).map((courseCode) => {
+          const matchedCourse = availableCourses.find((course) => course.subjectCode === courseCode);
+          return {
+            moduleCode: courseCode,
+            moduleName: matchedCourse?.subjectName || courseCode,
+            creditHours: Number(matchedCourse?.creditHours || 1),
+            grade: semesterForm.courseGrades[courseCode],
+          };
+        }),
+      };
+
+      const response = isEditModalOpen
+        ? await updateSemester(editSemesterId, payload)
+        : await addSemester(payload);
+
+      const updatedProgress = withDefaultProgress(response?.data);
+      setProgress(updatedProgress);
+
+      const semesterGpas = updatedProgress.semesters.map((semester) => semester.semesterGPA);
+      const totalCreditsCompleted = updatedProgress.semesters.reduce(
+        (sum, semester) => sum + (semester.totalCredits || 0),
+        0
+      );
+
+      setSummary({
+        currentGPA: updatedProgress.cumulativeGPA,
+        highestSemesterGPA: semesterGpas.length ? Math.max(...semesterGpas) : 0,
+        lowestSemesterGPA: semesterGpas.length ? Math.min(...semesterGpas) : 0,
+        totalCreditsCompleted,
+        totalSemestersRecorded: updatedProgress.semesters.length,
+      });
+
+      Notification.success(isEditModalOpen ? "Semester updated successfully" : "Semester added successfully");
+      closeModals();
+    } catch (requestError) {
+      Notification.error(getErrorMessage(requestError, "Failed to save semester."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onDeleteSemester = async (semesterId) => {
+    const confirmed = window.confirm("Are you sure you want to delete this semester?");
+    if (!confirmed) return;
+
+    setSaving(true);
+    try {
+      const response = await deleteSemester(semesterId);
+      const updatedProgress = withDefaultProgress(response?.data);
+      setProgress(updatedProgress);
+
+      const semesterGpas = updatedProgress.semesters.map((semester) => semester.semesterGPA);
+      const totalCreditsCompleted = updatedProgress.semesters.reduce(
+        (sum, semester) => sum + (semester.totalCredits || 0),
+        0
+      );
+
+      setSummary({
+        currentGPA: updatedProgress.cumulativeGPA,
+        highestSemesterGPA: semesterGpas.length ? Math.max(...semesterGpas) : 0,
+        lowestSemesterGPA: semesterGpas.length ? Math.min(...semesterGpas) : 0,
+        totalCreditsCompleted,
+        totalSemestersRecorded: updatedProgress.semesters.length,
+      });
+
+      Notification.success("Semester deleted successfully");
+    } catch (requestError) {
+      Notification.error(getErrorMessage(requestError, "Failed to delete semester."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleExpanded = (semesterId) => {
+    setExpandedIds((prev) => ({ ...prev, [semesterId]: !prev[semesterId] }));
+  };
+
+  const openAdminStudent = async (student) => {
+    setSelectedStudent(student);
+    await loadStudentProgress(student.userId);
+  };
+
+  const runGpaCalculator = () => {
+    const currentGPA = Number(summary.currentGPA || 0);
+    const currentCredits = Number(summary.totalCreditsCompleted || 0);
+    const desired = Number(targetGPA);
+    const nextCredits = Number(plannedCredits);
+
+    if (Number.isNaN(desired) || Number.isNaN(nextCredits) || nextCredits <= 0) {
+      setGpaAdvice("Please enter a valid target GPA and planned credits.");
+      return;
+    }
+
+    const required =
+      (desired * (currentCredits + nextCredits) - currentGPA * currentCredits) / nextCredits;
+
+    if (required > 4.0) {
+      setGpaAdvice(
+        `This target GPA is not achievable in one semester with ${nextCredits} credits.`
+      );
+      return;
+    }
+
+    if (required <= 0) {
+      setGpaAdvice("You have already reached this target GPA.");
+      return;
+    }
+
+    setGpaAdvice(
+      `You need a semester GPA of ${round2(required).toFixed(2)} in your next semester to reach your target GPA.`
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-48">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-danger-50 border border-danger-200 text-danger-600 rounded-md px-4 py-3">
+        {error}
+      </div>
+    );
+  }
+
+  if (isAdminUser && !selectedStudent) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-xl font-bold text-secondary-800">Progress Tracker</h1>
+
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search by student name or student number"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-100 table-fixed">
+              <thead>
+                <tr>
+                  <th className="table-th">Student Name</th>
+                  <th className="table-th">Student Number</th>
+                  <th className="table-th">Level</th>
+                  <th className="table-th">Cumulative GPA</th>
+                  <th className="table-th">Semesters Recorded</th>
+                  <th className="table-th">Action</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-100">
+                {filteredSummary.length > 0 ? (
+                  filteredSummary.map((student) => (
+                    <tr key={student.userId}>
+                      <td className="table-td">{student.studentName}</td>
+                      <td className="table-td">{student.studentNumber}</td>
+                      <td className="table-td">{student.level || "-"}</td>
+                      <td className={`table-td font-semibold ${getGpaColorClass(student.cumulativeGPA)}`}>
+                        {(student.cumulativeGPA || 0).toFixed(2)}
+                      </td>
+                      <td className="table-td">{student.semestersRecorded || 0}</td>
+                      <td className="table-td">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => openAdminStudent(student)}
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="table-td text-center">
+                      No students found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const currentGPA = Number(summary.currentGPA || progress.cumulativeGPA || 0);
+  const highestSemester = Number(summary.highestSemesterGPA || 0);
+  const creditsCompleted = Number(summary.totalCreditsCompleted || 0);
+  const semesterCount = Number(summary.totalSemestersRecorded || progress.semesters.length || 0);
+
+  const hasSemesters = progress.semesters.length > 0;
+
+  const renderEmptyState = () => (
+    <div className="bg-white rounded-xl border border-gray-100 p-10 shadow-sm text-center">
+      <div className="mx-auto w-12 h-12 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center mb-3">
+        <Icon icon="heroicons-outline:academic-cap" className="text-2xl" />
+      </div>
+      <h2 className="text-lg font-semibold text-secondary-800">No Results Added Yet</h2>
+      <p className="text-sm text-secondary-500 mt-2">
+        Start tracking your academic progress by adding your semester results.
+      </p>
+      {canEdit && (
+        <Button text="Add First Semester" className="btn-primary mt-4" onClick={openAddModal} />
+      )}
+    </div>
+  );
 
   return (
-    <div className="space-y-6 max-w-5xl">
-      {/* Page title */}
-      <h1 className="text-xl font-bold text-secondary-800">Progress Tracker</h1>
-
-      {/* Current GPA */}
-      <div className="text-3xl font-bold text-secondary-800">
-        {currentGpa.toFixed(2)}
-      </div>
-
-      {/* GPA Line Chart */}
-      <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-        <ResponsiveContainer width="100%" height={260}>
-          <LineChart
-            data={semesterData}
-            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-          >
-            <CartesianGrid
-              strokeDasharray="6 6"
-              stroke="#E5E7EB"
-              vertical={true}
-            />
-            <XAxis
-              dataKey="semester"
-              tick={{ fill: "#6B7280", fontSize: 12 }}
-              axisLine={{ stroke: "#D1D5DB" }}
-              tickLine={false}
-              label={{
-                value: "Year / Semester",
-                position: "insideBottomRight",
-                offset: -5,
-                style: { fill: "#9CA3AF", fontSize: 11 },
-              }}
-            />
-            <YAxis
-              domain={[0, 4]}
-              ticks={[0, 1, 2, 3, 4]}
-              tick={{ fill: "#6B7280", fontSize: 12 }}
-              axisLine={{ stroke: "#D1D5DB" }}
-              tickLine={false}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend
-              verticalAlign="top"
-              align="right"
-              iconType="plainline"
-              wrapperStyle={{ fontSize: 12, color: "#9CA3AF" }}
-            />
-            <Line
-              type="monotone"
-              dataKey="gpa"
-              name="GPA"
-              stroke="#FFCC00"
-              strokeWidth={2.5}
-              dot={{
-                r: 5,
-                fill: "#FFCC00",
-                stroke: "#393E41",
-                strokeWidth: 2,
-              }}
-              activeDot={{
-                r: 7,
-                fill: "#FFCC00",
-                stroke: "#393E41",
-                strokeWidth: 2,
-              }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Course Module Results */}
-      <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
-        <h2 className="text-base font-semibold text-secondary-800 mb-4">
-          Course Module Results
-        </h2>
-
-        <div className="space-y-3">
-          {modules.map((mod, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-3 bg-primary-50 border border-primary-200 rounded-xl px-4 py-3"
-            >
-              {/* Module Name */}
-              <div className="flex-1">
-                <label className="text-[10px] font-semibold text-secondary-400 uppercase tracking-wide mb-0.5 block">
-                  Module Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="Module Name"
-                  value={mod.name}
-                  onChange={(e) =>
-                    handleModuleChange(index, "name", e.target.value)
-                  }
-                  className="w-full bg-transparent outline-none text-sm text-secondary-800 placeholder:text-secondary-300 border-b border-secondary-200 pb-1"
-                />
-              </div>
-
-              {/* Grade */}
-              <div className="w-[100px]">
-                <label className="text-[10px] font-semibold text-secondary-400 uppercase tracking-wide mb-0.5 block">
-                  Grade
-                </label>
-                <select
-                  value={mod.grade}
-                  onChange={(e) =>
-                    handleModuleChange(index, "grade", e.target.value)
-                  }
-                  className="w-full bg-transparent outline-none text-sm text-secondary-800 border-b border-secondary-200 pb-1 cursor-pointer"
-                >
-                  <option value="">--</option>
-                  {GRADE_OPTIONS.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Credits */}
-              <div className="w-[70px]">
-                <label className="text-[10px] font-semibold text-secondary-400 uppercase tracking-wide mb-0.5 block">
-                  Credits
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="6"
-                  value={mod.credits}
-                  onChange={(e) =>
-                    handleModuleChange(index, "credits", e.target.value)
-                  }
-                  className="w-full bg-transparent outline-none text-sm text-secondary-800 border-b border-secondary-200 pb-1"
-                />
-              </div>
-
-              {/* Remove button */}
-              <button
-                onClick={() => handleRemoveModule(index)}
-                className="text-secondary-300 hover:text-red-400 transition mt-3"
-                title="Remove module"
-              >
-                <Icon
-                  icon="heroicons-outline:x-mark"
-                  className="w-4 h-4"
-                />
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {/* Add module link */}
-        <button
-          onClick={handleAddModule}
-          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-secondary-500 hover:text-secondary-700 transition"
-        >
-          <Icon icon="heroicons-outline:plus" className="w-3.5 h-3.5" />
-          Add Module
-        </button>
-
-        {/* Calculate + Save buttons */}
-        <div className="flex items-center gap-4 mt-5">
-          <button
-            onClick={handleCalculateGpa}
-            disabled={
-              !modules.some(
-                (m) => m.name.trim() && m.grade && m.credits > 0
-              )
-            }
-            className="px-6 py-2.5 bg-primary-400 text-secondary-800 text-sm font-semibold rounded-lg hover:bg-primary-500 transition disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Calculate GPA
-          </button>
-
-          {calculatedGpa !== null && (
-            <div className="flex items-center gap-4">
-              <span className="text-lg font-bold text-secondary-800">
-                Semester GPA:{" "}
-                <span className="text-primary-600">{calculatedGpa}</span>
-              </span>
-              <button
-                onClick={handleSaveSemester}
-                className="px-5 py-2 bg-secondary-700 text-white text-sm font-medium rounded-lg hover:bg-secondary-800 transition"
-              >
-                Save to History
-              </button>
-            </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-secondary-800">Progress Tracker</h1>
+          {selectedStudent && (
+            <p className="text-sm text-secondary-500 mt-1">
+              {selectedStudent.studentName} ({selectedStudent.studentNumber})
+            </p>
           )}
         </div>
+        {selectedStudent && (
+          <Button
+            text="Back to Students"
+            className="btn-outline-secondary btn-sm"
+            onClick={() => {
+              setSelectedStudent(null);
+              setProgress(withDefaultProgress());
+              setSummary({
+                currentGPA: 0,
+                highestSemesterGPA: 0,
+                lowestSemesterGPA: 0,
+                totalCreditsCompleted: 0,
+                totalSemestersRecorded: 0,
+              });
+              loadAdminSummary();
+            }}
+          />
+        )}
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+          <p className="text-sm text-secondary-500">Cumulative GPA</p>
+          <p className={`text-3xl font-bold mt-1 ${getGpaColorClass(currentGPA)}`}>
+            {currentGPA.toFixed(2)}
+          </p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+          <p className="text-sm text-secondary-500">Best Semester</p>
+          <p className="text-3xl font-bold mt-1 text-secondary-800">{highestSemester.toFixed(2)}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+          <p className="text-sm text-secondary-500">Credits Completed</p>
+          <p className="text-3xl font-bold mt-1 text-secondary-800">{creditsCompleted}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+          <p className="text-sm text-secondary-500">Semesters</p>
+          <p className="text-3xl font-bold mt-1 text-secondary-800">{semesterCount}</p>
+        </div>
+      </div>
+
+      {hasSemesters ? (
+        <>
+          <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-secondary-800">Cumulative GPA Trend</h2>
+              {canEdit && (
+                <Button
+                  text="Add Semester"
+                  className="btn-primary btn-sm"
+                  onClick={openAddModal}
+                />
+              )}
+            </div>
+
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="6 6" stroke="#E5E7EB" vertical />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fill: "#6B7280", fontSize: 12 }}
+                  axisLine={{ stroke: "#D1D5DB" }}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={[0, 4]}
+                  ticks={[0, 1, 2, 3, 4]}
+                  tick={{ fill: "#6B7280", fontSize: 12 }}
+                  axisLine={{ stroke: "#D1D5DB" }}
+                  tickLine={false}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <ReferenceLine y={2.0} stroke="#FA916B" strokeDasharray="4 4" />
+                <ReferenceLine y={3.5} stroke="#50C793" strokeDasharray="4 4" />
+                <Line
+                  type="monotone"
+                  dataKey="gpa"
+                  stroke="#FFCC00"
+                  strokeWidth={2.5}
+                  dot={{ r: 5, fill: "#FFCC00", stroke: "#393E41", strokeWidth: 2 }}
+                  activeDot={{ r: 7, fill: "#FFCC00", stroke: "#393E41", strokeWidth: 2 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="space-y-4">
+            {progress.semesters.map((semester) => {
+              const semesterGPA = Number(semester.semesterGPA || 0);
+
+              return (
+              <div key={semester._id} className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-semibold text-secondary-800">
+                      {displayYear(semester.year)} - Semester {semester.semester}
+                    </h3>
+                    <p className="text-sm text-secondary-500 mt-1">Total Credits: {semester.totalCredits}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`badge ${semesterGPA >= 3.5 ? "bg-success-100 text-success-600" : "bg-slate-100 text-secondary-700"}`}>
+                      Semester GPA {semesterGPA.toFixed(2)}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-secondary"
+                      onClick={() => toggleExpanded(semester._id)}
+                    >
+                      {expandedIds[semester._id] ? "Collapse" : "Expand"}
+                    </button>
+                    {canEdit && (
+                      <>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => openEditModal(semester)}
+                          disabled={saving}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => onDeleteSemester(semester._id)}
+                          disabled={saving}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {expandedIds[semester._id] && (
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full divide-y divide-slate-100 table-fixed">
+                      <thead>
+                        <tr>
+                          <th className="table-th">Module Code</th>
+                          <th className="table-th">Module Name</th>
+                          <th className="table-th">Credits</th>
+                          <th className="table-th">Grade</th>
+                          <th className="table-th">Grade Points</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-slate-100">
+                        {(semester.modules || []).map((module, index) => (
+                          <tr key={`${semester._id}-${index}`}>
+                            <td className="table-td">{module.moduleCode}</td>
+                            <td className="table-td">{module.moduleName}</td>
+                            <td className="table-td">{module.creditHours}</td>
+                            <td className={`table-td font-semibold ${getGradeColorClass(module.grade)}`}>
+                              {module.grade}
+                            </td>
+                            <td className="table-td">{Number(module.gradePoints || 0).toFixed(1)}</td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td className="table-td font-semibold">Totals</td>
+                          <td className="table-td">-</td>
+                          <td className="table-td font-semibold">{semester.totalCredits}</td>
+                          <td className="table-td">-</td>
+                          <td className="table-td font-semibold">Semester GPA {semesterGPA.toFixed(2)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              );
+            })}
+          </div>
+
+          {!isAdminUser && (
+            <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+              <h2 className="text-base font-semibold text-secondary-800">GPA Calculator</h2>
+              <p className="text-sm text-secondary-500 mt-1">
+                Calculate what GPA you need to achieve your target.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div className="fromGroup">
+                  <label className="form-label">Current cumulative GPA</label>
+                  <input type="number" className="form-control" value={currentGPA.toFixed(2)} readOnly />
+                </div>
+                <div className="fromGroup">
+                  <label className="form-label">Current total credits</label>
+                  <input type="number" className="form-control" value={creditsCompleted} readOnly />
+                </div>
+                <div className="fromGroup">
+                  <label className="form-label">Target cumulative GPA</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="eg 3.60"
+                    value={targetGPA}
+                    onChange={(e) => setTargetGPA(e.target.value)}
+                  />
+                </div>
+                <div className="fromGroup">
+                  <label className="form-label">Planned credits for next semester</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    placeholder="eg 15"
+                    value={plannedCredits}
+                    onChange={(e) => setPlannedCredits(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <Button text="Calculate" className="btn-secondary mt-4" onClick={runGpaCalculator} />
+
+              {gpaAdvice && (
+                <div className="mt-4 bg-slate-50 border border-slate-200 rounded-md p-4 text-sm text-secondary-700">
+                  {gpaAdvice}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        renderEmptyState()
+      )}
+
+      <SemesterModal
+        isOpen={isAddModalOpen}
+        title="Add Semester Results"
+        form={semesterForm}
+        setForm={setSemesterForm}
+        availableCourses={availableCourses}
+        isCoursesLoading={loadingCourses}
+        onClose={closeModals}
+        onSubmit={saveSemester}
+        isSaving={saving}
+      />
+
+      <SemesterModal
+        isOpen={isEditModalOpen}
+        title="Edit Semester Results"
+        form={semesterForm}
+        setForm={setSemesterForm}
+        availableCourses={availableCourses}
+        isCoursesLoading={loadingCourses}
+        onClose={closeModals}
+        onSubmit={saveSemester}
+        isSaving={saving}
+      />
     </div>
   );
 }

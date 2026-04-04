@@ -1,6 +1,6 @@
 import StudySessionCalendar from "./StudySession";
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { getAllSessions } from "@/services";
 import { useAuth } from "../context/AuthContext";
 
 import PomodoroTimer from "@/components/PomodoroTimer";
@@ -14,8 +14,13 @@ export default function Dashboard() {
   const displayName = authData?.name || "Student";
 
   const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   useEffect(() => {
+    const fetchUpcomingTasks = async () => {
+      setLoading(true);
+      try {
+        const sessions = await getAllSessions();
     const apiUrl = `${process.env.VITE_USER_SERVICE_URL}/api/studysession/`;
     axios.get(apiUrl)
       .then((res) => {
@@ -23,7 +28,7 @@ export default function Dashboard() {
         const todayColombo = new Date();
         todayColombo.setHours(0, 0, 0, 0);
 
-        const futureTasks = sessions
+        const futureTasks = (sessions || [])
           .map((task) => {
             const utc = new Date(task.date);
             const local = new Date(utc.getTime() + 5.5 * 60 * 60 * 1000);
@@ -33,8 +38,14 @@ export default function Dashboard() {
           .sort((a, b) => a.localDate - b.localDate);
 
         setTasks(futureTasks);
-      })
-      .catch((err) => console.error(err));
+      } catch (err) {
+        console.error("Failed to fetch sessions:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUpcomingTasks();
   }, []);
 
   return (
@@ -60,7 +71,7 @@ export default function Dashboard() {
 
           {/* Upcoming Tasks */}
           <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-            <UpcomingTasks />
+            <UpcomingTasks tasks={tasks.slice(0, 5)} loading={loading} />
           </div>
 
           {/* GPA Widget */}

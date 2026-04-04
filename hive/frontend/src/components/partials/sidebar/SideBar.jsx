@@ -72,6 +72,12 @@ const navItems = [
     path: "/resources",
     allowed: ["admin"],
   },
+  {
+    icon: "chart-bar",
+    name: "Academic Progress",
+    path: "/progress",
+    allowed: ["admin"],
+  },
   // Superadmin specific items
   {
     icon: "home",
@@ -101,6 +107,18 @@ const navItems = [
     icon: "folder-open",
     name: "Resources",
     path: "/resources",
+    allowed: ["superadmin"],
+  },
+  {
+    icon: "book-open",
+    name: "Course Management",
+    path: "/superadmin/courses",
+    allowed: ["superadmin"],
+  },
+  {
+    icon: "chart-bar",
+    name: "Batch Level Assignment",
+    path: "/superadmin/batch-levels",
     allowed: ["superadmin"],
   },
 ];

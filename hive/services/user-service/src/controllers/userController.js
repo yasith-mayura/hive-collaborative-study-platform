@@ -1,6 +1,22 @@
 const User = require('../models/User');
 const admin = require('firebase-admin');
 
+const STUDENT_NUMBER_PATTERN = /^SE\/(\d{4})\/\d{3}$/;
+
+const parseBatchFromStudentNumber = (studentNumber) => {
+  const match = String(studentNumber || '').match(STUDENT_NUMBER_PATTERN);
+  return match ? parseInt(match[1], 10) : null;
+};
+
+const normalizeStudentNumber = (studentNumber) => String(studentNumber || "").trim().toUpperCase();
+
+const isAdmin = (req) => req.user?.role === 'admin';
+
+const getRequesterBatch = (req) => {
+  if (Number.isInteger(req.user?.batch)) return req.user.batch;
+  return parseBatchFromStudentNumber(req.user?.studentNumber);
+};
+
 const syncFirebaseSafely = async (firebaseUid, operation, label) => {
   if (!firebaseUid) return null;
 
@@ -16,7 +32,12 @@ const syncFirebaseSafely = async (firebaseUid, operation, label) => {
 // GET all users (admin or superadmin)
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({ isActive: true }).select('-password');
+    const query = { isActive: true };
+    if (isAdmin(req)) {
+      query.batch = req.user.batch;
+    }
+
+    const users = await User.find(query).select('-password');
     return res.json(users);
   } catch (err) {
     console.error('getAllUsers error', err);
@@ -27,7 +48,12 @@ const getAllUsers = async (req, res) => {
 // GET all students only (for promoting to admin)
 const getAllStudents = async (req, res) => {
   try {
-    const students = await User.find({ role: 'student', isActive: true }).select('-password');
+    const query = { role: 'student', isActive: true };
+    if (isAdmin(req)) {
+      query.batch = req.user.batch;
+    }
+
+    const students = await User.find(query).select('-password');
     return res.json(students);
   } catch (err) {
     console.error('getAllStudents error', err);
@@ -39,19 +65,30 @@ const getAllStudents = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const { studentNumber } = req.params;
-    const user = await User.findOne({ studentNumber }).select('-password');
+    const normalizedStudentNumber = normalizeStudentNumber(studentNumber);
+    const user = await User.findOne({ studentNumber: normalizedStudentNumber }).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Allow admins/superadmins or the user themself
-    if (
-      req.user.role !== 'superadmin' &&
-      req.user.role !== 'admin' &&
-      req.user.uid !== user.firebaseUid
-    ) {
-      return res.status(403).json({ message: 'Forbidden' });
+    // Allow superadmin, own profile, or admin from same batch.
+    if (req.user.role === 'superadmin') return res.json(user);
+
+    if (req.user.uid === user.firebaseUid) return res.json(user);
+
+    if (req.user.role === 'admin') {
+      const requesterBatch = getRequesterBatch(req);
+      if (requesterBatch === null) {
+        return res.status(403).json({ message: 'Forbidden: admin batch not assigned' });
+      }
+
+      if (user.batch !== requesterBatch) {
+        return res.status(403).json({ message: 'Forbidden: different batch' });
+      }
+
+      return res.json(user);
     }
 
-    return res.json(user);
+    return res.status(403).json({ message: 'Forbidden' });
+
   } catch (err) {
     console.error('getUserById error', err);
     return res.status(500).json({ message: 'Server error' });
@@ -137,6 +174,17 @@ const createUser = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
+    if (isAdmin(req)) {
+      const newUserBatch = parseBatchFromStudentNumber(studentNumber);
+      if (newUserBatch === null) {
+        return res.status(400).json({ message: "Invalid student number format" });
+      }
+
+      if (newUserBatch !== req.user.batch) {
+        return res.status(403).json({ message: "Forbidden: can only create users in your batch" });
+      }
+    }
+
     // Always assign student role (DO NOT TRUST FRONTEND)
     const assignedRole = "student";
 
@@ -204,7 +252,12 @@ const deleteUser = async (req, res) => {
     const { studentNumber } = req.params;
 
     // Find user first
-    const user = await User.findOne({ studentNumber, role: "student" });
+    const userQuery = { studentNumber, role: "student" };
+    if (isAdmin(req)) {
+      userQuery.batch = req.user.batch;
+    }
+
+    const user = await User.findOne(userQuery);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -247,8 +300,18 @@ const updateUser = async (req, res) => {
 
     const { studentNumber } = req.params;
     const { name, email, studentNumber: nextStudentNumber } = req.body;
+    const normalizedCurrentStudentNumber = normalizeStudentNumber(studentNumber);
 
-    const user = await User.findOne({ studentNumber, role: "student", isActive: true });
+    const userQuery = { studentNumber: normalizedCurrentStudentNumber, role: "student", isActive: true };
+    const requesterBatch = isAdmin(req) ? getRequesterBatch(req) : null;
+    if (isAdmin(req)) {
+      if (requesterBatch === null) {
+        return res.status(403).json({ message: "Forbidden: admin batch not assigned" });
+      }
+      userQuery.batch = requesterBatch;
+    }
+
+    const user = await User.findOne(userQuery);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -261,15 +324,23 @@ const updateUser = async (req, res) => {
       user.email = email;
     }
 
-    if (nextStudentNumber && nextStudentNumber !== user.studentNumber) {
+    const normalizedNextStudentNumber = normalizeStudentNumber(nextStudentNumber);
+    const canChangeStudentNumber = req.user.role === "superadmin";
+
+    if (canChangeStudentNumber && normalizedNextStudentNumber && normalizedNextStudentNumber !== user.studentNumber) {
+      const nextBatch = parseBatchFromStudentNumber(normalizedNextStudentNumber);
+      if (nextBatch === null) {
+        return res.status(400).json({ message: "Invalid student number format" });
+      }
+
       const duplicateStudentNumber = await User.findOne({
-        studentNumber: nextStudentNumber,
+        studentNumber: normalizedNextStudentNumber,
         _id: { $ne: user._id },
       }).lean();
       if (duplicateStudentNumber) {
         return res.status(400).json({ message: "Student number already exists" });
       }
-      user.studentNumber = nextStudentNumber;
+      user.studentNumber = normalizedNextStudentNumber;
     }
 
     if (name) {
@@ -406,6 +477,49 @@ const promoteUserToAdmin = async (req, res) => {
   }
 };
 
+// POST demote admin to student (superadmin only)
+const demoteAdminToUser = async (req, res) => {
+  try {
+    if (req.user.role !== "superadmin") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    const { studentNumber } = req.params;
+
+    const user = await User.findOne({ studentNumber, role: "admin", isActive: true });
+
+    if (!user) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    user.role = "student";
+    await user.save();
+
+    const firebaseWarning = await syncFirebaseSafely(
+      user.firebaseUid,
+      async (uid) => {
+        await admin.auth().setCustomUserClaims(uid, { role: "student" });
+      },
+      "demoteAdminToUser"
+    );
+
+    return res.json({
+      message: "Admin demoted to user successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        studentNumber: user.studentNumber,
+        role: user.role,
+      },
+      warning: firebaseWarning,
+    });
+  } catch (err) {
+    console.error("demoteAdminToUser error", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 // DELETE soft delete admin (superadmin only)
 const deleteAdmin = async (req, res) => {
   try {
@@ -534,6 +648,7 @@ module.exports = {
   getAllAdmins,
   createAdmin,
   promoteUserToAdmin,
+  demoteAdminToUser,
   updateAdmin,
   deleteAdmin,
 };

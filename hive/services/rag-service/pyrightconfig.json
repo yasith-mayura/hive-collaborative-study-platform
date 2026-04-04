@@ -1,0 +1,10 @@
+{
+    "pythonVersion": "3.13",
+    "pythonPlatform": "Darwin",
+    "venvPath": ".",
+    "venv": "venv",
+    "extraPaths": [
+        ".",
+        "venv/lib/python3.13/site-packages"
+    ]
+}

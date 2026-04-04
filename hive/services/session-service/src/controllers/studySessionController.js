@@ -32,10 +32,27 @@ const isValidationError = (message = "") => {
   return message.includes("required") || message.includes("format");
 };
 
+const resolveSessionQuery = (req) => {
+  if (req.user?.role === "superadmin") {
+    return {};
+  }
+
+  if (typeof req.user?.batch !== "number") {
+    return null;
+  }
+
+  return { batch: req.user.batch };
+};
+
 //  Get All Sessions
 const getAllSessions = async (req, res) => {
   try {
-    const sessions = await StudySession.find().sort({ date: 1 });
+    const query = resolveSessionQuery(req);
+    if (query === null) {
+      return res.status(403).json({ message: "Forbidden: batch not assigned" });
+    }
+
+    const sessions = await StudySession.find(query).sort({ date: 1 });
     res.status(200).json(sessions);
   } catch (error) {
     res.status(500).json({
@@ -46,12 +63,18 @@ const getAllSessions = async (req, res) => {
 };
 const getCurrentMonthSessions = async (req, res) => {
   try {
+    const query = resolveSessionQuery(req);
+    if (query === null) {
+      return res.status(403).json({ message: "Forbidden: batch not assigned" });
+    }
+
     const now = new Date();
 
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
     const sessions = await StudySession.find({
+      ...query,
       date: {
         $gte: firstDay,
         $lte: lastDay
@@ -69,12 +92,18 @@ const getCurrentMonthSessions = async (req, res) => {
 };
 const getNextMonthSessions = async (req, res) => {
   try {
+    const query = resolveSessionQuery(req);
+    if (query === null) {
+      return res.status(403).json({ message: "Forbidden: batch not assigned" });
+    }
+
     const now = new Date();
 
     const firstDay = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59, 999);
 
     const sessions = await StudySession.find({
+      ...query,
       date: {
         $gte: firstDay,
         $lte: lastDay
@@ -94,6 +123,11 @@ const getNextMonthSessions = async (req, res) => {
 // Get sessions for a specific month 
 const getSessionsByMonth = async (req, res) => {
   try {
+    const query = resolveSessionQuery(req);
+    if (query === null) {
+      return res.status(403).json({ message: "Forbidden: batch not assigned" });
+    }
+
     const month = parseInt(req.params.month, 10);
     const year = parseInt(req.query.year, 10) || new Date().getFullYear();
 
@@ -112,7 +146,7 @@ const getSessionsByMonth = async (req, res) => {
           year: { $year: "$date" }
         }
       },
-      { $match: { month, year } },
+      { $match: { ...query, month, year } },
       { $sort: { date: 1 } },
       { $project: { month: 0, year: 0 } }
     ]);
@@ -130,13 +164,23 @@ const getSessionsByMonth = async (req, res) => {
  //  Get Single Session
 const getSessionById =async (req,res)=>{
     try {
-           const session = await StudySession.findById(req.params.id);
+      const session = await StudySession.findById(req.params.id);
 
-    if (!session) {
-      return res.status(404).json({ message: "Session not found" });
-    }
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
 
-    res.status(200).json(session);
+      if (req.user?.role !== "superadmin") {
+        if (typeof req.user?.batch !== "number") {
+          return res.status(403).json({ message: "Forbidden: batch not assigned" });
+        }
+
+        if (session.batch !== req.user.batch) {
+          return res.status(403).json({ message: "Forbidden: different batch" });
+        }
+      }
+
+      res.status(200).json(session);
     } catch (error) {
     res.status(500).json({
       message: "Server Error",
@@ -147,7 +191,7 @@ const getSessionById =async (req,res)=>{
 // Admin-only functions
 const createSession = async (req, res) => {
   try {
-    const { subjectCode, type, topic, description, date, time } = req.body;
+    const { subjectCode, type, topic, description, date, time, batch } = req.body;
 
     if (!subjectCode || !type || !topic || !date || !time) {
       return res.status(400).json({ message: "Subject code, type, topic, date and time are required." });
@@ -155,8 +199,22 @@ const createSession = async (req, res) => {
 
     const sriLankaDate = parseSriLankaDate(date, time);
 
+    let sessionBatch = null;
+    if (req.user.role === "admin") {
+      if (typeof req.user.batch === "number") {
+        sessionBatch = req.user.batch;
+      } else if (Number.isInteger(batch)) {
+        sessionBatch = batch;
+      } else {
+        sessionBatch = null;
+      }
+    } else if (req.user.role === "superadmin") {
+      sessionBatch = Number.isInteger(batch) ? batch : null;
+    }
+
     const session = await StudySession.create({
       subjectCode,
+      batch: sessionBatch,
       type,
       topic,
       description: description || "",
@@ -180,6 +238,15 @@ const updateSession = async (req, res) => {
     const existing = await StudySession.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: "Session not found" });
 
+    if (req.user.role === "admin") {
+      if (typeof req.user.batch !== "number") {
+        return res.status(403).json({ message: "Forbidden: admin batch not assigned" });
+      }
+      if (existing.batch !== req.user.batch) {
+        return res.status(403).json({ message: "Forbidden: different batch" });
+      }
+    }
+
     const {
       subjectCode,
       type,
@@ -187,6 +254,7 @@ const updateSession = async (req, res) => {
       description,
       date,
       time,
+      batch,
     } = req.body;
 
     const updatePayload = {
@@ -196,6 +264,12 @@ const updateSession = async (req, res) => {
       description: description ?? existing.description ?? "",
       time: time ?? existing.time,
     };
+
+    if (req.user.role === "admin") {
+      updatePayload.batch = req.user.batch;
+    } else if (req.user.role === "superadmin" && Number.isInteger(batch)) {
+      updatePayload.batch = batch;
+    }
 
     if (!updatePayload.subjectCode || !updatePayload.type || !updatePayload.topic || !updatePayload.time) {
       return res.status(400).json({ message: "Subject code, type, topic and time are required." });
@@ -223,6 +297,18 @@ const updateSession = async (req, res) => {
 
 const deleteSession = async (req, res) => {
   try {
+    const existing = await StudySession.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: "Session not found" });
+
+    if (req.user.role === "admin") {
+      if (typeof req.user.batch !== "number") {
+        return res.status(403).json({ message: "Forbidden: admin batch not assigned" });
+      }
+      if (existing.batch !== req.user.batch) {
+        return res.status(403).json({ message: "Forbidden: different batch" });
+      }
+    }
+
     const session = await StudySession.findByIdAndDelete(req.params.id);
     if (!session) return res.status(404).json({ message: "Session not found" });
     res.status(200).json({ message: "Session deleted successfully" });

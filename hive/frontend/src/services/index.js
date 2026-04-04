@@ -15,10 +15,27 @@ export {
   createAdmin,
   getAllAdmins,
   promoteUserToAdmin,
+  demoteAdminToUser,
   deleteAdmin,
   updateAdmin,
+  getAllCourses,
+  getBatchLevels,
+  getBatchLevelBatches,
+  getMyAssignedLevel,
+  assignBatchLevel,
+  removeBatchLevel,
 
   getBatchChatHistory,
+
+  getNotes,
+  createNote,
+  deleteNote,
+  updateNote,
+  
+  getFlashCardDecks,
+  createFlashCardDeck,
+  updateFlashCardDeck,
+  deleteFlashCardDeck,
 
   getAllSessions,
   getSessionById,
@@ -32,11 +49,6 @@ export {
 } from "./api";
 
 export {
-  createSubject,
-  getAllSubjects,
-  getSubjectByCode,
-  updateSubject,
-  deleteSubject,
   uploadResource,
   getResourcesBySubject,
   getResourceById,
@@ -44,3 +56,17 @@ export {
   deleteResource,
   getResourceStats,
 } from "./resourceService";
+
+export {
+  getProgress,
+  getProgressByUserId,
+  addSemester,
+  updateSemester,
+  deleteSemester,
+  getProgressSummary,
+  getCourses,
+  getCourseByCode,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+} from "./progressService";

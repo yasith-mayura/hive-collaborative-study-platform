@@ -1,5 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Icon from "@/components/ui/Icon";
+import { useAuth } from "@/context/AuthContext";
+import { getFlashCardDecks,
+  createFlashCardDeck,
+  updateFlashCardDeck,
+  deleteFlashCardDeck, } from "@/services";
+
 
 // Card color themes — assigned per card automatically
 const CARD_COLORS = [
@@ -12,56 +18,10 @@ const CARD_COLORS = [
 
 const getCardColor = (index) => CARD_COLORS[index % CARD_COLORS.length];
 
-// Mock deck data
-const initialDecks = [
-  {
-    id: 1,
-    name: "Data Structures",
-    cards: [
-      {
-        question: "What is a stack?",
-        answer:
-          "A stack is a linear data structure that follows the Last In First Out (LIFO) principle.",
-      },
-      {
-        question: "What is a queue?",
-        answer:
-          "A queue is a linear data structure that follows the First In First Out (FIFO) principle.",
-      },
-      {
-        question: "What is a linked list?",
-        answer:
-          "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam?",
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "Data Structures",
-    cards: [
-      {
-        question: "What is a binary tree?",
-        answer:
-          "A binary tree is a tree data structure where each node has at most two children.",
-      },
-    ],
-  },
-  {
-    id: 3,
-    name: "Data Structures",
-    cards: [
-      {
-        question: "What is a graph?",
-        answer:
-          "A graph is a non-linear data structure consisting of vertices and edges.",
-      },
-    ],
-  },
-];
-
 export default function FlashCards() {
-  const [decks, setDecks] = useState(initialDecks);
-  const [selectedDeckId, setSelectedDeckId] = useState(1);
+  const { user, loading } = useAuth();
+  const [decks, setDecks] = useState([]);
+  const [selectedDeckId, setSelectedDeckId] = useState(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -70,17 +30,45 @@ export default function FlashCards() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [showMobileDecks, setShowMobileDecks] = useState(false);
+  const [isLoadingDecks, setIsLoadingDecks] = useState(true);
+  const [requestError, setRequestError] = useState("");
+  const [cardMarks, setCardMarks] = useState({});
 
   // Creation form state
   const [newDeckName, setNewDeckName] = useState("");
   const [newCards, setNewCards] = useState([{ question: "", answer: "" }]);
 
-  const selectedDeck = decks.find((d) => d.id === selectedDeckId);
+  const selectedDeck = decks.find((d) => d._id === selectedDeckId);
   const currentCard = selectedDeck?.cards[currentCardIndex];
 
   const filteredDecks = decks.filter((d) =>
     d.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  useEffect(() => {
+    if (!loading && user) {
+      fetchDecks();
+    }
+  }, [loading, user]);
+
+  const fetchDecks = async () => {
+    try {
+      setIsLoadingDecks(true);
+      setRequestError("");
+      const data = await getFlashCardDecks();
+      setDecks(data || []);
+
+      if (data?.length) {
+        setSelectedDeckId((prev) => prev || data[0]._id);
+      } else {
+        setSelectedDeckId(null);
+      }
+    } catch (err) {
+      setRequestError(err.response?.data?.message || "Failed to load flashcard decks");
+    } finally {
+      setIsLoadingDecks(false);
+    }
+  };
 
   const handlePrevCard = () => {
     if (selectedDeck && currentCardIndex > 0) {
@@ -104,6 +92,40 @@ export default function FlashCards() {
     if (showMobileDecks) setShowMobileDecks(false);
   };
 
+  // Mark a card as correct or incorrect
+  const handleMarkCard = (e, mark) => {
+    e.stopPropagation();
+    if (!selectedDeck) return;
+    setCardMarks((prev) => ({
+      ...prev,
+      [selectedDeckId]: {
+        ...(prev[selectedDeckId] || {}),
+        [currentCardIndex]: mark,
+      },
+    }));
+    // Auto-advance to next card after a short delay
+    setTimeout(() => {
+      if (currentCardIndex < selectedDeck.cards.length - 1) {
+        setCurrentCardIndex((i) => i + 1);
+        setIsFlipped(false);
+      } else {
+        setIsFlipped(false);
+      }
+    }, 400);
+  };
+
+  const handleResetMarks = () => {
+    setCardMarks((prev) => ({ ...prev, [selectedDeckId]: {} }));
+    setCurrentCardIndex(0);
+    setIsFlipped(false);
+  };
+
+  // Get marks for current deck
+  const currentDeckMarks = cardMarks[selectedDeckId] || {};
+  const totalMarked = Object.keys(currentDeckMarks).length;
+  const correctCount = Object.values(currentDeckMarks).filter((m) => m === "correct").length;
+  const incorrectCount = Object.values(currentDeckMarks).filter((m) => m === "incorrect").length;
+
   const handleAddCardRow = () => {
     setNewCards([...newCards, { question: "", answer: "" }]);
   };
@@ -120,39 +142,47 @@ export default function FlashCards() {
     setNewCards(updated);
   };
 
-  const handleCreate = () => {
-    const validCards = newCards.filter(
-      (c) => c.question.trim() && c.answer.trim()
-    );
-    if (validCards.length === 0 || !newDeckName.trim()) return;
-
-    if (isEditing && editingDeckId) {
-      // Update existing deck
-      setDecks(
-        decks.map((d) =>
-          d.id === editingDeckId
-            ? { ...d, name: newDeckName.trim(), cards: validCards }
-            : d
-        )
-      );
-      setSelectedDeckId(editingDeckId);
-      setCurrentCardIndex(0);
-    } else {
-      // Create new deck
-      const newDeck = {
-        id: Date.now(),
-        name: newDeckName.trim(),
-        cards: validCards,
-      };
-      setDecks([...decks, newDeck]);
-      setSelectedDeckId(newDeck.id);
-      setCurrentCardIndex(0);
-    }
+  const resetEditorState = () => {
     setIsCreating(false);
     setIsEditing(false);
     setEditingDeckId(null);
     setNewDeckName("");
     setNewCards([{ question: "", answer: "" }]);
+  };
+
+  const handleCreate = async () => {
+    const validCards = newCards.filter(
+      (c) => c.question.trim() && c.answer.trim()
+    );
+    if (validCards.length === 0 || !newDeckName.trim()) return;
+
+    try {
+      setRequestError("");
+
+      if (isEditing && editingDeckId) {
+        const updatedDeck = await updateFlashCardDeck(editingDeckId, {
+          name: newDeckName.trim(),
+          cards: validCards,
+        });
+        setDecks((prev) =>
+          prev.map((d) => (d._id === editingDeckId ? updatedDeck : d))
+        );
+        setSelectedDeckId(editingDeckId);
+      } else {
+        const createdDeck = await createFlashCardDeck({
+          name: newDeckName.trim(),
+          cards: validCards,
+        });
+        setDecks((prev) => [createdDeck, ...prev]);
+        setSelectedDeckId(createdDeck._id);
+      }
+
+      setCurrentCardIndex(0);
+      setIsFlipped(false);
+      resetEditorState();
+    } catch (err) {
+      setRequestError(err.response?.data?.message || "Unable to save deck");
+    }
   };
 
   const handleStartCreating = () => {
@@ -165,7 +195,7 @@ export default function FlashCards() {
 
   const handleEditDeck = (e, deckId) => {
     e.stopPropagation();
-    const deck = decks.find((d) => d.id === deckId);
+    const deck = decks.find((d) => d._id === deckId);
     if (!deck) return;
     setIsCreating(true);
     setIsEditing(true);
@@ -179,12 +209,36 @@ export default function FlashCards() {
     if (!selectedDeck) return;
     setIsCreating(true);
     setIsEditing(true);
-    setEditingDeckId(selectedDeck.id);
+    setEditingDeckId(selectedDeck._id);
     setNewDeckName(selectedDeck.name);
     setNewCards([
       ...selectedDeck.cards.map((c) => ({ ...c })),
       { question: "", answer: "" },
     ]);
+  };
+
+  const handleDeleteDeck = async (e, deckId) => {
+    e.stopPropagation();
+
+    try {
+      setRequestError("");
+      await deleteFlashCardDeck(deckId);
+
+      const updatedDecks = decks.filter((deck) => deck._id !== deckId);
+      setDecks(updatedDecks);
+
+      if (selectedDeckId === deckId) {
+        setSelectedDeckId(updatedDecks[0]?._id || null);
+        setCurrentCardIndex(0);
+        setIsFlipped(false);
+      }
+
+      if (isEditing && editingDeckId === deckId) {
+        resetEditorState();
+      }
+    } catch (err) {
+      setRequestError(err.response?.data?.message || "Unable to delete deck");
+    }
   };
 
   return (
@@ -241,11 +295,19 @@ export default function FlashCards() {
 
         {/* Deck list */}
         <div className="flex-1 overflow-y-auto px-6 space-y-2 pb-6 mt-1">
+          {isLoadingDecks && (
+            <p className="text-center text-xs text-secondary-400 mt-8 italic">Loading decks...</p>
+          )}
+
+          {!isLoadingDecks && requestError && (
+            <p className="text-center text-xs text-red-500 mt-8">{requestError}</p>
+          )}
+
           {filteredDecks.map((deck) => (
             <div
-              key={deck.id}
-              onClick={() => handleSelectDeck(deck.id)}
-              className={`group w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition text-sm cursor-pointer ${selectedDeckId === deck.id && !isCreating
+              key={deck._id}
+              onClick={() => handleSelectDeck(deck._id)}
+              className={`group w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition text-sm cursor-pointer ${selectedDeckId === deck._id && !isCreating
                 ? "bg-primary-100 text-secondary-900 font-medium shadow-sm"
                 : "text-secondary-600 hover:bg-gray-50 border border-transparent hover:border-gray-100"
                 }`}
@@ -256,7 +318,7 @@ export default function FlashCards() {
               />
               <span className="truncate flex-1">{deck.name}</span>
               <button
-                onClick={(e) => handleEditDeck(e, deck.id)}
+                onClick={(e) => handleEditDeck(e, deck._id)}
                 className="opacity-0 group-hover:opacity-100 text-secondary-400 hover:text-primary-600 transition"
                 title="Edit deck"
               >
@@ -265,9 +327,19 @@ export default function FlashCards() {
                   className="w-4 h-4"
                 />
               </button>
+              <button
+                onClick={(e) => handleDeleteDeck(e, deck._id)}
+                className="opacity-0 group-hover:opacity-100 text-secondary-400 hover:text-red-500 transition"
+                title="Delete deck"
+              >
+                <Icon
+                  icon="heroicons-outline:trash"
+                  className="w-4 h-4"
+                />
+              </button>
             </div>
           ))}
-          {filteredDecks.length === 0 && (
+          {!isLoadingDecks && filteredDecks.length === 0 && !requestError && (
             <p className="text-center text-xs text-secondary-400 mt-10 italic">No decks found</p>
           )}
         </div>
@@ -396,11 +468,7 @@ export default function FlashCards() {
             {/* Create / Save button */}
             <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6">
               <button
-                onClick={() => {
-                  setIsCreating(false);
-                  setIsEditing(false);
-                  setEditingDeckId(null);
-                }}
+                onClick={resetEditorState}
                 className="w-full sm:w-auto px-6 py-2.5 border border-secondary-300 text-secondary-600 text-sm font-medium rounded-xl hover:bg-secondary-50 transition"
               >
                 Cancel
@@ -421,17 +489,81 @@ export default function FlashCards() {
           /* ===== VIEWER MODE ===== */
           <div className="flex flex-col items-center gap-6 w-full max-w-2xl px-2">
             <div className="w-full flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-secondary-400 uppercase tracking-widest">
-                Card {currentCardIndex + 1} of {selectedDeck.cards.length}
-              </span>
-              <button
-                onClick={handleQuickAddCard}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition active:scale-95"
-              >
-                <Icon icon="heroicons-outline:plus" className="w-3 h-3" />
-                ADD NEW CARD
-              </button>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-secondary-400 uppercase tracking-widest">
+                  Card {currentCardIndex + 1} of {selectedDeck.cards.length}
+                </span>
+                {/* Card mark indicator dots */}
+                {selectedDeck.cards.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    {selectedDeck.cards.map((_, i) => {
+                      const mark = currentDeckMarks[i];
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => { setCurrentCardIndex(i); setIsFlipped(false); }}
+                          className={`w-2.5 h-2.5 rounded-full transition-all border ${
+                            i === currentCardIndex ? "scale-125 ring-2 ring-offset-1" : ""
+                          } ${
+                            mark === "correct"
+                              ? "bg-green-500 border-green-600 ring-green-300"
+                              : mark === "incorrect"
+                              ? "bg-red-500 border-red-600 ring-red-300"
+                              : "bg-gray-200 border-gray-300 ring-gray-200"
+                          }`}
+                          title={`Card ${i + 1}${mark ? ` — ${mark}` : ""}`}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {totalMarked > 0 && (
+                  <button
+                    onClick={handleResetMarks}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-bold text-secondary-500 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition active:scale-95"
+                    title="Reset all marks"
+                  >
+                    <Icon icon="heroicons-outline:arrow-path" className="w-3 h-3" />
+                    RESET
+                  </button>
+                )}
+                <button
+                  onClick={handleQuickAddCard}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition active:scale-95"
+                >
+                  <Icon icon="heroicons-outline:plus" className="w-3 h-3" />
+                  ADD NEW CARD
+                </button>
+              </div>
             </div>
+
+            {/* Score Summary Bar */}
+            {totalMarked > 0 && (
+              <div className="w-full flex items-center gap-3 bg-white rounded-xl px-4 py-2.5 border border-gray-100 shadow-sm">
+                <div className="flex items-center gap-1.5 text-green-600">
+                  <Icon icon="heroicons-outline:check-circle" className="w-4 h-4" />
+                  <span className="text-xs font-bold">{correctCount}</span>
+                </div>
+                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full flex">
+                    <div
+                      className="bg-green-500 h-full transition-all duration-500"
+                      style={{ width: selectedDeck ? `${(correctCount / selectedDeck.cards.length) * 100}%` : "0%" }}
+                    />
+                    <div
+                      className="bg-red-400 h-full transition-all duration-500"
+                      style={{ width: selectedDeck ? `${(incorrectCount / selectedDeck.cards.length) * 100}%` : "0%" }}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 text-red-500">
+                  <span className="text-xs font-bold">{incorrectCount}</span>
+                  <Icon icon="heroicons-outline:x-circle" className="w-4 h-4" />
+                </div>
+              </div>
+            )}
 
             <div className="relative w-full flex items-center gap-2 sm:gap-6 justify-center">
               {/* Prev arrow (Desktop Only) */}
@@ -449,7 +581,7 @@ export default function FlashCards() {
               {/* Flashcard */}
               <div
                 onClick={() => setIsFlipped(!isFlipped)}
-                className="w-full sm:w-[480px] aspect-[4/3] sm:aspect-auto sm:h-[280px] cursor-pointer [perspective:1000px] group"
+                className="w-full sm:w-[480px] aspect-[4/3] sm:aspect-auto sm:h-[280px] cursor-pointer [perspective:1000px] group overflow-visible"
               >
                 <div
                   className={`relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped ? "[transform:rotateY(180deg)]" : ""
@@ -461,11 +593,19 @@ export default function FlashCards() {
 
                   {/* Front — Question */}
                   <div
-                    className="absolute inset-0 [backface-visibility:hidden] rounded-2xl p-6 sm:p-10 flex flex-col justify-between shadow-2xl transition-shadow group-hover:shadow-primary-200"
+                    className="absolute inset-0 [backface-visibility:hidden] rounded-2xl p-6 sm:p-10 flex flex-col justify-between shadow-2xl transition-shadow group-hover:shadow-primary-200 border border-white/20"
                     style={{ 
                       background: `linear-gradient(135deg, ${getCardColor(currentCardIndex).front}, ${getCardColor(currentCardIndex).back})`,
                     }}
                   >
+                    {/* Mark indicator badge */}
+                    {currentDeckMarks[currentCardIndex] && (
+                      <div className={`absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center ${
+                        currentDeckMarks[currentCardIndex] === "correct" ? "bg-green-500" : "bg-red-500"
+                      }`}>
+                        <Icon icon={currentDeckMarks[currentCardIndex] === "correct" ? "heroicons-outline:check" : "heroicons-outline:x-mark"} className="w-4 h-4 text-white" />
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">Question</span>
                       <p style={{ color: getCardColor(currentCardIndex).text }} className="text-base sm:text-xl font-medium leading-relaxed">
@@ -485,7 +625,7 @@ export default function FlashCards() {
 
                   {/* Back — Answer */}
                   <div
-                    className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] rounded-2xl p-6 sm:p-10 flex flex-col justify-between shadow-2xl transition-shadow border-4"
+                    className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] rounded-2xl p-6 sm:p-10 flex flex-col justify-between shadow-2xl transition-shadow border-[3px]"
                     style={{ 
                       backgroundColor: "#FFFFFF",
                       borderColor: getCardColor(currentCardIndex).front,
@@ -499,16 +639,29 @@ export default function FlashCards() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex justify-between items-center bg-slate-50 -m-6 sm:-m-10 mt-0 p-4 sm:px-10">
-                       <span style={{ color: getCardColor(currentCardIndex).front }} className="text-[10px] font-black uppercase tracking-tighter">Correct?</span>
-                       <div className="flex items-center gap-1 sm:gap-2">
-                          <button className="p-2 hover:bg-green-100 rounded-full text-green-600 transition" onClick={(e) => e.stopPropagation()}>
-                            <Icon icon="heroicons-outline:check-circle" className="w-6 h-6" />
-                          </button>
-                          <button className="p-2 hover:bg-red-100 rounded-full text-red-600 transition" onClick={(e) => e.stopPropagation()}>
-                            <Icon icon="heroicons-outline:x-circle" className="w-6 h-6" />
-                          </button>
-                       </div>
+                    <div className="flex justify-between items-center rounded-b-xl overflow-hidden -mx-6 sm:-mx-10 -mb-6 sm:-mb-10 mt-0">
+                       <button
+                         onClick={(e) => handleMarkCard(e, "correct")}
+                         className={`flex-1 flex items-center justify-center gap-2 py-3 font-bold text-sm transition-all ${
+                           currentDeckMarks[currentCardIndex] === "correct"
+                             ? "bg-green-500 text-white"
+                             : "bg-green-50 text-green-700 hover:bg-green-100"
+                         }`}
+                       >
+                         <Icon icon="heroicons-outline:check-circle" className="w-5 h-5" />
+                         Got it!
+                       </button>
+                       <button
+                         onClick={(e) => handleMarkCard(e, "incorrect")}
+                         className={`flex-1 flex items-center justify-center gap-2 py-3 font-bold text-sm transition-all ${
+                           currentDeckMarks[currentCardIndex] === "incorrect"
+                             ? "bg-red-500 text-white"
+                             : "bg-red-50 text-red-700 hover:bg-red-100"
+                         }`}
+                       >
+                         <Icon icon="heroicons-outline:x-circle" className="w-5 h-5" />
+                         Review Again
+                       </button>
                     </div>
                   </div>
                 </div>

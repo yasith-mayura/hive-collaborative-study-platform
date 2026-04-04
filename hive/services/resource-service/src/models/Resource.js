@@ -11,7 +11,7 @@ const resourceSchema = new mongoose.Schema(
     subjectCode: {
       type: String,
       required: true,
-      ref: 'Subject',
+      ref: 'Course',
     },
     subjectName: {
       type: String,

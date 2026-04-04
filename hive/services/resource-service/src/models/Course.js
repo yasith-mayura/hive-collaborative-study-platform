@@ -1,13 +1,13 @@
 const mongoose = require('mongoose');
 
-const subjectSchema = new mongoose.Schema(
+const courseSchema = new mongoose.Schema(
   {
     subjectCode: {
       type: String,
       required: true,
       unique: true,
       trim: true,
-      uppercase: true,  // always stored as "SE3010"
+      uppercase: true,
     },
     subjectName: {
       type: String,
@@ -24,16 +24,24 @@ const subjectSchema = new mongoose.Schema(
       enum: [1, 2],
       required: true,
     },
-    description: {
+    creditHours: {
+      type: Number,
+    },
+    status: {
       type: String,
-      default: '',
+      enum: ['compulsory', 'optional', 'specialisation'],
+      default: 'compulsory',
+    },
+    specialisationTrack: {
+      type: String,
+      default: null,
     },
     isActive: {
       type: Boolean,
       default: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true, collection: 'courses' }
 );
 
-module.exports = mongoose.model('Subject', subjectSchema);
+module.exports = mongoose.models.Course || mongoose.model('Course', courseSchema);

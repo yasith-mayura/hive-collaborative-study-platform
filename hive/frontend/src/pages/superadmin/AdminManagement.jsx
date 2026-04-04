@@ -5,9 +5,15 @@ import Drawer from "@/components/ui/Drawer";
 import Notification from "@/components/ui/Notification";
 import AdminProfile from "@/pages/superadmin/components/AdminProfile";
 import AdminSearch from "@/pages/superadmin/components/AdminSearch";
-import { getAllAdmins, deleteAdmin, updateAdmin } from "@/services";
-import AddNewAdminModal from "./components/AddNewAdmin";
+import { getAllAdmins, deleteAdmin, demoteAdminToUser, updateAdmin } from "@/services";
 import PromoteUserToAdmin from "./components/PromoteUserToAdmin";
+
+const BUTTON_COLORS = {
+  primary: { backgroundColor: "#DDF2FF", color: "#0A435B", border: "1px solid #00BFD8" },
+  success: { backgroundColor: "#DDF5E6", color: "#1B5133", border: "1px solid #3FB07A" },
+  warning: { backgroundColor: "#FBEAB4", color: "#4A3A00", border: "1px solid #D9A900" },
+  danger: { backgroundColor: "#F9DEE8", color: "#6F2F47", border: "1px solid #E07C9C" },
+};
 
 function AdminManagement() {
   const [admins, setAdmins] = useState([]);
@@ -16,7 +22,6 @@ function AdminManagement() {
   const [fetchLoading, setFetchLoading] = useState(true);
   const [openDrawer, setOpenDrawer] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
-  const [openModal, setOpenModal] = useState(false);
   const [openPromoteModal, setOpenPromoteModal] = useState(false);
 
   const columns = [
@@ -97,6 +102,20 @@ function AdminManagement() {
     }
   };
 
+  const handleDemoteAdmin = async (studentNumber) => {
+    try {
+      const result = await demoteAdminToUser(studentNumber);
+      Notification.success("Admin demoted to user successfully");
+      if (result?.warning) {
+        Notification.warning(result.warning);
+      }
+      handleDrawerClose();
+      fetchAdmins();
+    } catch (error) {
+      Notification.error(error?.response?.data?.message || "Failed to demote admin");
+    }
+  };
+
   return (
     <>
       <div className="overflow-hidden">
@@ -108,22 +127,14 @@ function AdminManagement() {
               handleSearch={handleSearch}
             />
           </div>
-          <div className="flex gap-2">
-            <button
-              className="inline-flex items-center justify-center gap-2 rounded-sm py-2 px-4 bg-green-600 text-white shadow-theme-xs hover:bg-green-700"
-              onClick={() => setOpenPromoteModal(true)}
-            >
-              <Icon icon="heroicons-outline:arrow-up" className="w-5 h-5" />
-              Promote User
-            </button>
-            <button
-              className="inline-flex items-center justify-center gap-2 rounded-sm py-2 px-4 bg-gray-800 text-white shadow-theme-xs hover:bg-gray-900"
-              onClick={() => setOpenModal(true)}
-            >
-              <Icon icon="heroicons-outline:plus" className="w-5 h-5" />
-              Add New Admin
-            </button>
-          </div>
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-sm py-2 px-4 shadow-theme-xs transition-opacity hover:opacity-90"
+            style={BUTTON_COLORS.success}
+            onClick={() => setOpenPromoteModal(true)}
+          >
+            <Icon icon="heroicons-outline:arrow-up" className="w-5 h-5" />
+            Promote to Admin
+          </button>
         </div>
 
         <Card noborder>
@@ -168,14 +179,24 @@ function AdminManagement() {
                                   <button
                                     type="button"
                                     onClick={() => handleClick(row)}
-                                    className="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
+                                    className="px-3 py-1 text-xs font-medium rounded transition-opacity hover:opacity-90"
+                                    style={BUTTON_COLORS.primary}
                                   >
                                     Update
                                   </button>
                                   <button
                                     type="button"
+                                    onClick={() => handleDemoteAdmin(row.studentNumber)}
+                                    className="px-3 py-1 text-xs font-medium rounded transition-opacity hover:opacity-90"
+                                    style={BUTTON_COLORS.warning}
+                                  >
+                                    Demote
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => handleDeleteAdmin(row.studentNumber)}
-                                    className="px-3 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                                    className="px-3 py-1 text-xs font-medium rounded transition-opacity hover:opacity-90"
+                                    style={BUTTON_COLORS.danger}
                                   >
                                     Delete
                                   </button>
@@ -211,16 +232,11 @@ function AdminManagement() {
             admin={selectedAdmin}
             onClose={handleDrawerClose}
             onDelete={handleDeleteAdmin}
+            onDemote={handleDemoteAdmin}
             onUpdate={handleUpdateAdmin}
           />
         )}
       </Drawer>
-
-      <AddNewAdminModal
-        isOpen={openModal}
-        closeModal={() => setOpenModal(false)}
-        onAdminAdded={fetchAdmins}
-      />
 
       <PromoteUserToAdmin
         isOpen={openPromoteModal}

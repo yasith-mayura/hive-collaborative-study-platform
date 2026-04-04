@@ -4,7 +4,6 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
 const {
   validateCreateUser,
-  validateCreateAdmin,
   validateUpdateUser,
   validateUpdateAdmin,
   validateUpdateMyProfile,
@@ -19,8 +18,8 @@ const {
   updateUser,
   deleteUser,
   getAllAdmins,
-  createAdmin,
   promoteUserToAdmin,
+  demoteAdminToUser,
   updateAdmin,
   deleteAdmin,
 } = require('../controllers/userController');
@@ -41,7 +40,9 @@ router.get('/users/:studentNumber', authMiddleware, getUserById);
 router.post('/users/register', validateCreateUser, createUser);
 
 // POST /users - admin or superadmin
-router.post('/users', authMiddleware, requireRole('admin', 'superadmin'), validateCreateUser, createUser);
+router.post('/users', authMiddleware, requireRole('admin', 'superadmin'), (req, res) => {
+  return res.status(403).json({ message: 'Creating new users is disabled' });
+});
 
 // PUT /users/me - authenticated user's own profile (name/password only)
 router.put('/users/me', authMiddleware, validateUpdateMyProfile, updateMyProfile);
@@ -56,10 +57,15 @@ router.delete('/users/:studentNumber', authMiddleware, requireRole('admin', 'sup
 router.get('/admins', authMiddleware, requireRole('superadmin'), getAllAdmins);
 
 // POST /admins - superadmin only
-router.post('/admins', authMiddleware, requireRole('superadmin'), validateCreateAdmin, createAdmin);
+router.post('/admins', authMiddleware, requireRole('superadmin'), (req, res) => {
+  return res.status(403).json({ message: 'Creating new admins is disabled' });
+});
 
 // POST /admins/promote/:studentNumber - promote user to admin (superadmin only)
 router.post('/admins/promote/:studentNumber', authMiddleware, requireRole('superadmin'), promoteUserToAdmin);
+
+// POST /admins/demote/:studentNumber - demote admin to user (superadmin only)
+router.post('/admins/demote/:studentNumber', authMiddleware, requireRole('superadmin'), demoteAdminToUser);
 
 // PUT /admins/:studentNumber - superadmin only
 router.put('/admins/:studentNumber', authMiddleware, requireRole('superadmin'), validateUpdateAdmin, updateAdmin);

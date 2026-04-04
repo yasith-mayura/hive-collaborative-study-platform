@@ -41,7 +41,7 @@ const UserProfile = ({ user, onClose, onDelete, onUpdate }) => {
 
   const fields = [
     { key: "name", label: "Student Name", value: formData.name, editable: true },
-    { key: "studentNumber", label: "Student Number", value: formData.studentNumber, editable: true },
+    { key: "studentNumber", label: "Student Number", value: formData.studentNumber, editable: false },
     { key: "email", label: "Email", value: formData.email, editable: true },
     { key: "role", label: "Role", value: user?.role },
     { key: "batch", label: "Batch", value: user?.batch || "N/A" },
