@@ -68,7 +68,6 @@ jobs:
             progress-service
             session-service
             rag-service
-            frontend
           )
 
           for svc in "${services[@]}"; do
