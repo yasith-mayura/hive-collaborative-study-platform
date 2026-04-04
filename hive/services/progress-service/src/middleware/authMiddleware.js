@@ -1,6 +1,33 @@
 const admin = require('firebase-admin');
 const User = require('../models/User');
 
+const normalizeRole = (role) => {
+  if (role === 'admin' || role === 'superadmin') return role;
+  return 'student';
+};
+
+const ensureDbUser = async (decoded) => {
+  let dbUser = await User.findOne({ firebaseUid: decoded.uid, isActive: true }).lean();
+  if (dbUser) return dbUser;
+
+  const firebaseUser = await admin.auth().getUser(decoded.uid);
+  const email = decoded.email || firebaseUser.email;
+
+  if (!email) {
+    throw new Error('Cannot auto-provision user without email');
+  }
+
+  const created = await User.create({
+    firebaseUid: decoded.uid,
+    email,
+    name: decoded.name || firebaseUser.displayName || email.split('@')[0],
+    role: normalizeRole(decoded.role || decoded.customClaims?.role),
+    isActive: true,
+  });
+
+  return created.toObject();
+};
+
 const initFirebaseAdmin = () => {
   if (admin.apps.length) return;
 
@@ -35,11 +62,7 @@ const authMiddleware = async (req, res, next) => {
     initFirebaseAdmin();
     const decoded = await admin.auth().verifyIdToken(idToken);
 
-    const dbUser = await User.findOne({ firebaseUid: decoded.uid, isActive: true }).lean();
-
-    if (!dbUser) {
-      return res.status(401).json({ message: 'User not found or inactive' });
-    }
+    const dbUser = await ensureDbUser(decoded);
 
     req.user = {
       uid: decoded.uid,

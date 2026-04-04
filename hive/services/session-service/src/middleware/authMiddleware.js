@@ -34,21 +34,28 @@ const fetchUserProfile = async (idToken) => {
   throw lastError || new Error('Failed to load user profile');
 };
 
-// Initialize Firebase Admin if not already initialized (expects env vars)
-// NOTE: In production, use service account JSON or environment variables securely.
-if (!admin.apps.length) {
+// Lazy-initialize Firebase so invalid/missing env vars don't crash at startup
+let firebaseReady = false;
+const ensureFirebase = () => {
+  if (firebaseReady || admin.apps.length) { firebaseReady = true; return; }
+
   const privateKey = process.env.FIREBASE_PRIVATE_KEY
     ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
     : undefined;
+
+  if (!process.env.FIREBASE_PROJECT_ID || !privateKey || !process.env.FIREBASE_CLIENT_EMAIL) {
+    throw new Error('Firebase env vars missing: FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL');
+  }
 
   admin.initializeApp({
     credential: admin.credential.cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: privateKey,
+      privateKey,
     }),
   });
-}
+  firebaseReady = true;
+};
 
 const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -57,6 +64,7 @@ const authMiddleware = async (req, res, next) => {
   }
   const idToken = authHeader.split('Bearer ')[1].trim();
   try {
+    ensureFirebase();
     const decoded = await admin.auth().verifyIdToken(idToken);
 
     // Resolve role/batch from user-service DB to avoid stale token claims.
