@@ -279,3 +279,8 @@ jobs:
               --label "automated" \
               --label "ci-passed"
           fi
+
+          labels: |
+            automated
+            ci-passed
+          draft: false
