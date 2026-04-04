@@ -1,8 +1,8 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
-import { SidebarProvider, useSidebar } from "@/context/SidebarContext";
+import { SidebarProvider, useSidebar } from "@/context/sidebarContext";
 import AppHeader from "@/components/partials/navbar/NavBar";
-import AppSidebar from "@/components/partials/sidebar/sidebar";
+import AppSidebar from "@/components/partials/sidebar/SideBar";
 
 import PomodoroTimer from "@/components/PomodoroTimer";
 

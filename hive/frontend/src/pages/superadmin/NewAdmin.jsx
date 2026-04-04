@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 
-import { useAuth } from "@/context/authContext";
+import { useAuth } from "@/context/AuthContext";
 // import { createAdmin } from "@services/api";
 
 import Button from "@/components/ui/Button";
