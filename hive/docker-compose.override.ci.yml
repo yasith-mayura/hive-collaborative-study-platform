@@ -1,7 +1,5 @@
 # docker-compose.override.ci.yml
 # Usage: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml up --build
-
-version: "3.8"
 services:
   auth-service:
     restart: "no"
