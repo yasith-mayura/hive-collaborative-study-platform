@@ -3,21 +3,24 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-const {
-  FIREBASE_PROJECT_ID,
-  FIREBASE_PRIVATE_KEY,
-  FIREBASE_CLIENT_EMAIL,
-} = process.env;
+// Lazy-initialize Firebase so invalid/missing env vars don't crash at startup
+let firebaseReady = false;
 
-// Initialize Firebase Admin SDK using environment variables.
-if (!admin.apps.length) {
+const ensureFirebase = () => {
+  if (firebaseReady || admin.apps.length) { firebaseReady = true; return; }
+
+  const {
+    FIREBASE_PROJECT_ID,
+    FIREBASE_PRIVATE_KEY,
+    FIREBASE_CLIENT_EMAIL,
+  } = process.env;
+
   if (!FIREBASE_PROJECT_ID || !FIREBASE_PRIVATE_KEY || !FIREBASE_CLIENT_EMAIL) {
     console.warn('Firebase environment variables are not fully configured.');
+    throw new Error('Firebase env vars missing: FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL');
   }
 
-  const privateKey = FIREBASE_PRIVATE_KEY
-    ? FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    : undefined;
+  const privateKey = FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
 
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -26,6 +29,17 @@ if (!admin.apps.length) {
       privateKey,
     }),
   });
-}
+  firebaseReady = true;
+};
 
-module.exports = admin;
+// Export a proxy that ensures Firebase is initialized before use
+const lazyAdmin = new Proxy(admin, {
+  get(target, prop) {
+    if (prop === 'auth' || prop === 'firestore' || prop === 'messaging') {
+      ensureFirebase();
+    }
+    return target[prop];
+  },
+});
+
+module.exports = lazyAdmin;

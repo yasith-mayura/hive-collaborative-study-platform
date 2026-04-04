@@ -3,14 +3,18 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-if (!admin.apps.length) {
+// Lazy-initialize Firebase so invalid/missing env vars don't crash at startup
+let firebaseReady = false;
+
+const ensureFirebase = () => {
+  if (firebaseReady || admin.apps.length) { firebaseReady = true; return; }
+
   const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY } = process.env;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY
-    ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+  const privateKey = FIREBASE_PRIVATE_KEY
+    ? FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
     : undefined;
 
   // Prefer explicit service account credentials when available.
-  // Fallback lets the service boot with ADC/ambient credentials.
   if (FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && privateKey) {
     admin.initializeApp({
       credential: admin.credential.cert({
@@ -23,6 +27,17 @@ if (!admin.apps.length) {
     console.warn('Firebase service-account env vars are incomplete for chat-service; using default credentials.');
     admin.initializeApp();
   }
-}
+  firebaseReady = true;
+};
 
-module.exports = admin;
+// Export a proxy that ensures Firebase is initialized before use
+const lazyAdmin = new Proxy(admin, {
+  get(target, prop) {
+    if (prop === 'auth' || prop === 'firestore' || prop === 'messaging') {
+      ensureFirebase();
+    }
+    return target[prop];
+  },
+});
+
+module.exports = lazyAdmin;
