@@ -104,7 +104,7 @@ def _reconcile_embedding_dimensions(cur, target_dimensions: int) -> None:
 
 
 def get_db_connection():
-    conn = psycopg2.connect(
+    return psycopg2.connect(
         host=settings.pgvector_host,
         port=settings.pgvector_port,
         dbname=settings.pgvector_database,
@@ -112,8 +112,6 @@ def get_db_connection():
         password=settings.pgvector_password,
         connect_timeout=5,
     )
-    register_vector(conn)
-    return conn
 
 
 def init_db() -> None:
@@ -125,6 +123,11 @@ def init_db() -> None:
 
         with conn.cursor() as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+        conn.commit()
+
+        register_vector(conn)
+
+        with conn.cursor() as cur:
             cur.execute(_create_table_sql(target_dimensions))
             cur.execute(CREATE_INDEX_SQL)
             _create_vector_index_if_supported(cur, target_dimensions)
