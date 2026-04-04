@@ -246,8 +246,7 @@ services:
       retries: 5
       start_period: 30s
 
-# volumes:
-#   mongo-data:
+
 
 networks:
   # Connects all commons serices (Certbot, Nginx, pgAdmin, Chatbot and Django).
