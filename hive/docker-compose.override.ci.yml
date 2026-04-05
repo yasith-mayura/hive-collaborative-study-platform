@@ -64,6 +64,7 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+    
 
   frontend:
     restart: "no"
@@ -74,6 +75,12 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+    environment:
+      PGVECTOR_HOST: pgvector
+      PGVECTOR_PORT: 5432
+      PGVECTOR_DATABASE: hive_vectors
+      PGVECTOR_USER: hive_user
+      PGVECTOR_PASSWORD: hive_pass
       
   pgvector:
     restart: "no"
