@@ -43,3 +43,5 @@ services:
     build: ~
     restart: unless-stopped
     ports: []  # remove host binding in prod — internal network only
+    volumes:
+    - ./pgvector-init.sql:/docker-entrypoint-initdb.d/01-init.sql
