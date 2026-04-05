@@ -131,6 +131,27 @@ const isFutureOrToday = (session) => {
   return date >= today;
 };
 
+const renderDescription = (description) => {
+  if (!description) return "";
+  const trimmed = description.trim();
+  const isUrl = /^(https?:\/\/[^\s]+)$/i.test(trimmed);
+
+  if (isUrl) {
+    return (
+      <a
+        href={trimmed}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 hover:underline break-all"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {description}
+      </a>
+    );
+  }
+  return description;
+};
+
 function SessionToolbar({ label, onNavigate, onView, view }) {
   const viewOptions = ["month", "week", "day", "agenda"];
 
@@ -596,7 +617,7 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
                           <td className="px-4 py-3">{session.topic}</td>
                           <td className="px-4 py-3">{formatDdMmYyyy(session.date)}</td>
                           <td className="px-4 py-3">{session.time}</td>
-                          <td className="px-4 py-3">{session.description}</td>
+                          <td className="px-4 py-3">{renderDescription(session.description)}</td>
                         </tr>
                       );
                     })}
@@ -774,7 +795,7 @@ export default function StudySessionCalendar({ isUpcomingTasks = true, hideListV
             </div>
             <div>
               <p className="text-xs uppercase text-gray-500">Description</p>
-              <p className="mt-1 leading-6">{selectedSession.description}</p>
+              <p className="mt-1 leading-6">{renderDescription(selectedSession.description)}</p>
             </div>
             <div>
               <p className="text-xs uppercase text-gray-500">Date</p>
