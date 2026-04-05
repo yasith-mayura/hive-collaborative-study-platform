@@ -1,5 +1,8 @@
 const StudySession = require("../models/studySessionModel");
 
+const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3007';
+const SERVICE_SECRET_KEY = process.env.SERVICE_SECRET_KEY || 'hive_internal_service_key_2025';
+
 const TIME_PATTERN = /^(0[1-9]|1[0-2])\.(0[0-9]|[1-5][0-9])\s(AM|PM)$/;
 
 const parseSriLankaDate = (date, time) => {
@@ -42,6 +45,31 @@ const resolveSessionQuery = (req) => {
   }
 
   return { batch: req.user.batch };
+};
+
+const formatDate = (value) => {
+  const date = new Date(value);
+  return date.toLocaleDateString('en-GB');
+};
+
+const sendNotificationSafely = async (payload) => {
+  try {
+    const response = await fetch(`${NOTIFICATION_SERVICE_URL}/api/notifications/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-service-key': SERVICE_SECRET_KEY,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.error('sendNotificationSafely failed', response.status, body);
+    }
+  } catch (err) {
+    console.error('sendNotificationSafely error', err.message || err);
+  }
 };
 
 //  Get All Sessions
@@ -222,6 +250,19 @@ const createSession = async (req, res) => {
       time
     });
 
+    await sendNotificationSafely({
+      userIds: 'all_students',
+      title: 'New Study Session',
+      message: `New study session scheduled: ${session.topic} for ${session.subjectCode} on ${formatDate(session.date)} at ${session.time}`,
+      type: 'session',
+      data: {
+        sessionId: String(session._id),
+        subjectCode: session.subjectCode,
+        date: formatDate(session.date),
+        time: session.time,
+      },
+    });
+
     res.status(201).json(session);
 
   } catch (error) {
@@ -286,6 +327,20 @@ const updateSession = async (req, res) => {
 
     const session = await StudySession.findByIdAndUpdate(req.params.id, updatePayload, { new: true });
     if (!session) return res.status(404).json({ message: "Session not found" });
+
+    await sendNotificationSafely({
+      userIds: 'all_students',
+      title: 'Study Session Updated',
+      message: `Study session updated: ${session.topic} for ${session.subjectCode} is now on ${formatDate(session.date)} at ${session.time}`,
+      type: 'session',
+      data: {
+        sessionId: String(session._id),
+        subjectCode: session.subjectCode,
+        date: formatDate(session.date),
+        time: session.time,
+      },
+    });
+
     res.status(200).json(session);
   } catch (error) {
     if (isValidationError(error.message)) {
@@ -311,9 +366,48 @@ const deleteSession = async (req, res) => {
 
     const session = await StudySession.findByIdAndDelete(req.params.id);
     if (!session) return res.status(404).json({ message: "Session not found" });
+
+    await sendNotificationSafely({
+      userIds: 'all_students',
+      title: 'Study Session Cancelled',
+      message: `Study session cancelled: ${session.topic} for ${session.subjectCode} on ${formatDate(session.date)} has been cancelled`,
+      type: 'session',
+      data: {
+        sessionId: String(session._id),
+        subjectCode: session.subjectCode,
+        date: formatDate(session.date),
+        time: session.time,
+      },
+    });
+
     res.status(200).json({ message: "Session deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
+  }
+};
+
+const getUpcomingSessionsForReminder = async (req, res) => {
+  try {
+    const minutesAhead = Number(req.query.minutesAhead || 60);
+    const windowMinutes = Number(req.query.windowMinutes || 1);
+
+    const now = new Date();
+    const from = new Date(now.getTime() + minutesAhead * 60 * 1000);
+    const to = new Date(from.getTime() + windowMinutes * 60 * 1000);
+
+    const sessions = await StudySession.find({
+      date: {
+        $gte: from,
+        $lt: to,
+      },
+    }).sort({ date: 1 });
+
+    return res.json({
+      count: sessions.length,
+      sessions,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
 
@@ -325,5 +419,6 @@ const deleteSession = async (req, res) => {
   getSessionsByMonth,
   createSession,
   updateSession,
-  deleteSession
+  deleteSession,
+  getUpcomingSessionsForReminder,
   };

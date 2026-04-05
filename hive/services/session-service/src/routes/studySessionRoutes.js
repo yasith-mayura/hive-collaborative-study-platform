@@ -8,10 +8,14 @@ const {
   getSessionsByMonth,
   createSession,
   updateSession,
-  deleteSession
+  deleteSession,
+  getUpcomingSessionsForReminder,
 } = require("../controllers/studySessionController");
 const authMiddleware = require("../middleware/authMiddleware");
 const {requireRole} = require("../middleware/roleMiddleware");
+const { verifyServiceKey } = require('../middleware/serviceKeyMiddleware');
+
+router.get('/internal/upcoming', verifyServiceKey, getUpcomingSessionsForReminder);
 
 // Public routes
 router.get("/", authMiddleware, getAllSessions);
