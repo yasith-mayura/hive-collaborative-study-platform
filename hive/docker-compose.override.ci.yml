@@ -82,3 +82,5 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+    volumes:
+    - pgvector_data:/var/lib/postgresql/data
