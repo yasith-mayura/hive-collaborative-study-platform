@@ -81,7 +81,7 @@ export default function AdminDashboard() {
     <div>
       {/* Greeting */}
       <h2 className="text-lg font-semibold text-secondary-800 mb-5">
-        Hey {displayName}! 🐝 You are managing {adminBatchLabel} batch
+        Hey {displayName}! 🐝 You are kakka {adminBatchLabel} batch
       </h2>
 
       {/* Main layout: calendar + sidebar */}
