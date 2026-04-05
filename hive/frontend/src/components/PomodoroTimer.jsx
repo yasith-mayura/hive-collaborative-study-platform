@@ -55,13 +55,6 @@ export default function PomodoroTimer() {
     }
   }, [isDashboard]);
 
-  // Request browser notification permission
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
-
   const sendBreakNotification = useCallback((finishedMode) => {
     let title = "🐝 Time's up!";
     let bodyText = finishedMode === "focus" ? "Great work! Time for a break to recharge." : "Break is over. Ready to focus again?";
