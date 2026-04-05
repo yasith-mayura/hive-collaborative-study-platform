@@ -37,3 +37,7 @@ services:
   frontend:
     image: ${ECR_REGISTRY}/hive/frontend:${IMAGE_TAG}
     build: ~
+    
+  pgvector:
+    image: ${ECR_REGISTRY}/hive/pgvector:${IMAGE_TAG}
+    build: ~
