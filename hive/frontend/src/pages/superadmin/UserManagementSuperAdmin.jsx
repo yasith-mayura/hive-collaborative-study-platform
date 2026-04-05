@@ -35,7 +35,6 @@ function UserManagementSuperAdmin() {
       // Filter to show only students (not admins or superadmins)
       const studentsOnly = (response || []).filter(user => user.role === 'student');
       setUsers(studentsOnly);
-      setFilteredUsers(studentsOnly);
     } catch (error) {
       Notification.error(error.message || "Failed to fetch users");
     } finally {
@@ -70,6 +69,10 @@ function UserManagementSuperAdmin() {
 
     setFilteredUsers(result);
   };
+
+  useEffect(() => {
+    applyFilters(searchQuery, batchFilter);
+  }, [users, searchQuery, batchFilter]);
 
   const handleSearch = () => {
     applyFilters(searchQuery, batchFilter);
