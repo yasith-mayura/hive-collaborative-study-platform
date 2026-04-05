@@ -39,5 +39,7 @@ services:
     build: ~
     
   pgvector:
-    image: ${ECR_REGISTRY}/hive/pgvector:${IMAGE_TAG}
+    image: pgvector/pgvector:pg16
     build: ~
+    restart: unless-stopped
+    ports: []  # remove host binding in prod — internal network only
