@@ -1,7 +1,30 @@
 const BatchLevel = require('../models/BatchLevel');
 const User = require('../models/User');
 
+const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3007';
+const SERVICE_SECRET_KEY = process.env.SERVICE_SECRET_KEY || 'hive_internal_service_key_2025';
+
 const normalizeBatch = (batch = '') => String(batch).trim();
+
+const sendNotificationSafely = async (payload) => {
+  try {
+    const response = await fetch(`${NOTIFICATION_SERVICE_URL}/api/notifications/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-service-key': SERVICE_SECRET_KEY,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.error('sendNotificationSafely failed', response.status, body);
+    }
+  } catch (err) {
+    console.error('sendNotificationSafely error', err.message || err);
+  }
+};
 
 const getBatchLevels = async (req, res) => {
   try {
@@ -144,6 +167,17 @@ const assignBatchLevel = async (req, res) => {
       },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
+
+    await sendNotificationSafely({
+      userIds: `batch:${batch}`,
+      title: 'Batch Level Assigned',
+      message: `Your batch has been assigned to Level ${level}. New courses are now available.`,
+      type: 'batch',
+      data: {
+        batch,
+        level,
+      },
+    });
 
     return res.status(200).json({
       message: `Batch ${batch} assigned to Level ${level} successfully`,

@@ -9,8 +9,30 @@ const { s3Client } = require('../middleware/uploadMiddleware');
 const RAG_SERVICE_URL = process.env.RAG_SERVICE_URL || 'http://localhost:8000';
 const S3_BUCKET = process.env.S3_BUCKET_NAME || 'hive-study-resources';
 const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3001';
+const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3007';
+const SERVICE_SECRET_KEY = process.env.SERVICE_SECRET_KEY || 'hive_internal_service_key_2025';
 
 const getAuthorizationHeader = (req) => req.headers.authorization || '';
+
+const sendNotificationSafely = async (payload) => {
+  try {
+    const response = await fetch(`${NOTIFICATION_SERVICE_URL}/api/notifications/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-service-key': SERVICE_SECRET_KEY,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.error('sendNotificationSafely failed', response.status, body);
+    }
+  } catch (err) {
+    console.error('sendNotificationSafely error', err.message || err);
+  }
+};
 
 const getLevelAccessScope = async (req) => {
   if (req.levelAccessScope) return req.levelAccessScope;
@@ -184,6 +206,18 @@ const uploadResource = async (req, res) => {
         console.warn(`[RAG] Could not notify RAG service: ${ragErr.message}`);
       }
     }
+
+    await sendNotificationSafely({
+      userIds: 'all_students',
+      title: 'New Resource Uploaded',
+      message: `New ${resource.resourceType} uploaded for ${resource.subjectName}: ${resource.title}`,
+      type: 'resource',
+      data: {
+        resourceId: resource.resourceId,
+        subjectCode: resource.subjectCode,
+        resourceType: resource.resourceType,
+      },
+    });
 
     return res.status(201).json({
       message: 'Resource uploaded successfully',

@@ -1,6 +1,9 @@
 const User = require('../models/User');
 const admin = require('firebase-admin');
 
+const NOTIFICATION_SERVICE_URL = process.env.NOTIFICATION_SERVICE_URL || 'http://localhost:3007';
+const SERVICE_SECRET_KEY = process.env.SERVICE_SECRET_KEY || 'hive_internal_service_key_2025';
+
 const STUDENT_NUMBER_PATTERN = /^SE\/(\d{4})\/\d{3}$/;
 
 const parseBatchFromStudentNumber = (studentNumber) => {
@@ -26,6 +29,77 @@ const syncFirebaseSafely = async (firebaseUid, operation, label) => {
   } catch (err) {
     console.error(`${label} firebase sync error`, err.message || err);
     return 'User data updated in database, but Firebase sync failed';
+  }
+};
+
+const sendNotificationSafely = async (payload) => {
+  try {
+    const response = await fetch(`${NOTIFICATION_SERVICE_URL}/api/notifications/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-service-key': SERVICE_SECRET_KEY,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.error('sendNotificationSafely failed', response.status, body);
+    }
+  } catch (err) {
+    console.error('sendNotificationSafely error', err.message || err);
+  }
+};
+
+const getStudentsForInternal = async (req, res) => {
+  try {
+    const users = await User.find({ role: 'student', isActive: true })
+      .select('firebaseUid name batch role email')
+      .lean();
+
+    return res.json({
+      users: users
+        .filter((user) => user.firebaseUid)
+        .map((user) => ({
+          userId: user.firebaseUid,
+          name: user.name,
+          batch: user.batch,
+          role: user.role,
+          email: user.email,
+        })),
+    });
+  } catch (err) {
+    console.error('getStudentsForInternal error', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const getStudentsByBatchForInternal = async (req, res) => {
+  try {
+    const batch = Number(req.params.batch);
+    if (!Number.isInteger(batch)) {
+      return res.status(400).json({ message: 'Invalid batch' });
+    }
+
+    const users = await User.find({ role: 'student', isActive: true, batch })
+      .select('firebaseUid name batch role email')
+      .lean();
+
+    return res.json({
+      users: users
+        .filter((user) => user.firebaseUid)
+        .map((user) => ({
+          userId: user.firebaseUid,
+          name: user.name,
+          batch: user.batch,
+          role: user.role,
+          email: user.email,
+        })),
+    });
+  } catch (err) {
+    console.error('getStudentsByBatchForInternal error', err);
+    return res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -210,6 +284,16 @@ const createUser = async (req, res) => {
     });
 
     await user.save();
+
+    await sendNotificationSafely({
+      userIds: [user.firebaseUid],
+      title: 'Welcome to HIVE',
+      message: 'Welcome to HIVE! Your account has been created. Please login with your email.',
+      type: 'user',
+      data: {
+        studentNumber: user.studentNumber,
+      },
+    });
 
     // Return safe response (never send password)
     return res.status(201).json({
@@ -460,6 +544,17 @@ const promoteUserToAdmin = async (req, res) => {
       "promoteUserToAdmin"
     );
 
+    await sendNotificationSafely({
+      userIds: [user.firebaseUid],
+      title: 'Role Updated',
+      message: 'Your account has been upgraded to Admin. You now have additional permissions.',
+      type: 'user',
+      data: {
+        studentNumber: user.studentNumber,
+        role: user.role,
+      },
+    });
+
     return res.json({
       message: "User promoted to admin successfully",
       user: {
@@ -502,6 +597,17 @@ const demoteAdminToUser = async (req, res) => {
       },
       "demoteAdminToUser"
     );
+
+    await sendNotificationSafely({
+      userIds: [user.firebaseUid],
+      title: 'Role Updated',
+      message: 'Your admin privileges have been updated. You are now registered as a student.',
+      type: 'user',
+      data: {
+        studentNumber: user.studentNumber,
+        role: user.role,
+      },
+    });
 
     return res.json({
       message: "Admin demoted to user successfully",
@@ -651,6 +757,8 @@ module.exports = {
   demoteAdminToUser,
   updateAdmin,
   deleteAdmin,
+  getStudentsForInternal,
+  getStudentsByBatchForInternal,
 };
 
 

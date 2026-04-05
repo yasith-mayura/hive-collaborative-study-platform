@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const { requireRole } = require('../middleware/roleMiddleware');
+const { verifyServiceKey } = require('../middleware/serviceKeyMiddleware');
 const {
   validateCreateUser,
   validateUpdateUser,
@@ -22,7 +23,12 @@ const {
   demoteAdminToUser,
   updateAdmin,
   deleteAdmin,
+  getStudentsForInternal,
+  getStudentsByBatchForInternal,
 } = require('../controllers/userController');
+
+router.get('/internal/users/students', verifyServiceKey, getStudentsForInternal);
+router.get('/internal/users/students/batch/:batch', verifyServiceKey, getStudentsByBatchForInternal);
 
 // GET /users - admin or superadmin
 router.get('/users', authMiddleware, requireRole('admin', 'superadmin'), getAllUsers);
