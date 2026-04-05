@@ -34,8 +34,8 @@ const AppHeader = () => {
 
   return (
     <header className="sticky top-0 flex w-full bg-white border-gray-200 z-40 lg:border-b">
-      <div className="flex flex-col items-center justify-between grow lg:flex-row lg:px-6 py-3">
-        <div className="flex items-center justify-between w-full gap-2 px-3 py-1 border-b border-gray-200 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0">
+      <div className="flex items-center justify-between grow px-3 lg:px-6 py-3">
+        <div className="flex items-center gap-2 sm:gap-4">
           <button
             className="items-center justify-center w-5 h-5 text-gray-500 border-gray-200 rounded-md lg:flex lg:h-8 lg:w-8 lg:border"
             onClick={handleToggle}
@@ -82,14 +82,8 @@ const AppHeader = () => {
               </>
             )}
           </h1>
-
         </div>
-        <div className="flex items-center lg:justify-end lg:px-5">
-          {/* <>
-            {role === "superadmin" && (
-              <NewBtn />
-            )}
-          </> */}
+        <div className="flex items-center">
           <UserDropdown
             user={{
               name: user?.displayName || user?.email || "User",
