@@ -7,7 +7,7 @@ export default function UpcomingTasks({ tasks = [], loading = false, onTaskClick
             <h3 className="text-sm font-semibold text-secondary-700 mb-4 shrink-0 px-1">
                 Upcoming tasks
             </h3>
-            <div className="flex-1 overflow-y-auto space-y-3 font-inter px-2 custom-scrollbar pb-2">
+            <div className="flex-1 overflow-y-auto space-y-3 font-inter px-3 [scrollbar-gutter:stable] custom-scrollbar pb-2">
                 {loading && (
                     <p className="text-xs text-secondary-400 italic">Finding your next buzz... 🐝</p>
                 )}
@@ -26,7 +26,7 @@ export default function UpcomingTasks({ tasks = [], loading = false, onTaskClick
                             key={task._id || index}
                             type={isClickable ? "button" : undefined}
                             onClick={isClickable ? () => onTaskClick(task) : undefined}
-                            className={`w-full text-left p-3 rounded-r-xl transition-all border-l-[4px] shadow-sm flex flex-col gap-1.5 ${isClickable ? "hover:scale-[1.02] cursor-pointer" : ""
+                            className={`w-full text-left p-3 rounded-r-xl transition-all border-l-[4px] shadow-sm flex flex-col gap-1.5 mx-0.5 ${isClickable ? "hover:scale-[1.015] cursor-pointer" : ""
                                 }`}
                             style={{
                                 backgroundColor: subjectColor.bg,

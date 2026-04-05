@@ -309,6 +309,22 @@
     @apply bg-primary-500 text-white;
   }
 
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #94a3b8; /* slate-400 */
+    border-radius: 8px;
+    border: 2px solid #ffffff;
+  }
+
+  [aria-expanded=true]>.btn-outline-secondary {
+    @apply bg-secondary-500 text-white;
+  }
+
   .btn-outline-secondary {
     @apply bg-transparent text-secondary-500 border border-secondary-500 hover:border-secondary-500 hover:bg-secondary-500/5;
   }
