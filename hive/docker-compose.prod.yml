@@ -40,8 +40,6 @@ services:
     
   pgvector:
     image: pgvector/pgvector:pg16
-    build: ~
     restart: unless-stopped
     ports: []  # remove host binding in prod — internal network only
-    volumes:
-    - ./pgvector-init.sql:/docker-entrypoint-initdb.d/01-init.sql
+ 
