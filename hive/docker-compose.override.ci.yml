@@ -82,7 +82,7 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
-    env:
+    environment:
       POSTGRES_USER: hive_user
       POSTGRES_PASSWORD: hive_pass
       POSTGRES_DB: hive_vectors
