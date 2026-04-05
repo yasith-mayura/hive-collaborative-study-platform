@@ -14,6 +14,7 @@ import ProgressTracker from "./pages/ProgressTracker";
 import Notes from "./pages/Notes";
 import StudySession from "./pages/StudySession";
 import Profile from "./pages/Profile";
+import NotificationsPage from "./pages/NotificationsPage";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="progress" element={<ProgressTracker />} />
             <Route path="notes" element={<Notes />} />
             <Route path="session" element={<StudySession />} />
+            <Route path="notifications" element={<NotificationsPage />} />
             <Route path="profile" element={<Profile />} />
 
             <Route path="admin" element={<AdminDashboard />} />
