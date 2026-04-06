@@ -23,6 +23,11 @@ import {
   getProgressSummary,
   updateSemester,
 } from "@/services";
+import {
+  generateGPASuggestions,
+  formatScenarioDescription,
+  getEffortLabel,
+} from "@/lib/gpaSuggestions";
 
 const GRADE_MAP = {
   "A+": 4.0,
@@ -123,6 +128,28 @@ const sortSemesters = (semesters = []) => {
     if (byYear !== 0) return byYear;
     return Number(a.semester) - Number(b.semester);
   });
+};
+
+const getNextSemesterTarget = (semesters = []) => {
+  const sorted = sortSemesters(semesters);
+
+  if (!sorted.length) {
+    return { yearLevel: 1, semester: 1 };
+  }
+
+  const lastSemester = sorted[sorted.length - 1];
+  const lastYearLevel = parseYearStart(lastSemester.year) || 1;
+  const lastSemesterNo = Number(lastSemester.semester) || 1;
+
+  if (lastSemesterNo === 1) {
+    return { yearLevel: lastYearLevel, semester: 2 };
+  }
+
+  if (lastYearLevel >= 4) {
+    return null;
+  }
+
+  return { yearLevel: lastYearLevel + 1, semester: 1 };
 };
 
 const withDefaultProgress = (data) => ({
@@ -454,8 +481,17 @@ export default function ProgressTracker() {
   const [availableCourses, setAvailableCourses] = useState([]);
 
   const [targetGPA, setTargetGPA] = useState("");
-  const [plannedCredits, setPlannedCredits] = useState("");
   const [gpaAdvice, setGpaAdvice] = useState("");
+  const [gpaSuggestions, setGpaSuggestions] = useState(null);
+  const [expandedScenario, setExpandedScenario] = useState(0);
+  const [nextSemesterPlan, setNextSemesterPlan] = useState({
+    yearLevel: null,
+    semester: null,
+    courses: [],
+    totalCredits: 0,
+    loading: false,
+    error: "",
+  });
 
   const canEdit = !isAdminUser;
 
@@ -556,6 +592,69 @@ export default function ProgressTracker() {
 
     loadCoursesForSelection();
   }, [isAddModalOpen, isEditModalOpen, semesterForm.yearLevel, semesterForm.semester]);
+
+  useEffect(() => {
+    const loadNextSemesterCourses = async () => {
+      if (isAdminUser) return;
+
+      const target = getNextSemesterTarget(progress.semesters);
+
+      if (!target) {
+        setNextSemesterPlan({
+          yearLevel: null,
+          semester: null,
+          courses: [],
+          totalCredits: 0,
+          loading: false,
+          error: "All semesters appear to be completed.",
+        });
+        return;
+      }
+
+      try {
+        setNextSemesterPlan((prev) => ({
+          ...prev,
+          yearLevel: target.yearLevel,
+          semester: target.semester,
+          loading: true,
+          error: "",
+        }));
+
+        const response = await getCourses({
+          year: target.yearLevel,
+          semester: target.semester,
+        });
+
+        const allCourses = response?.courses || [];
+        const compulsoryCourses = allCourses.filter((course) => course.status === "compulsory");
+        const selectedCourses = compulsoryCourses.length > 0 ? compulsoryCourses : allCourses;
+        const totalCredits = selectedCourses.reduce(
+          (sum, course) => sum + Number(course.creditHours || 0),
+          0
+        );
+
+        setNextSemesterPlan({
+          yearLevel: target.yearLevel,
+          semester: target.semester,
+          courses: selectedCourses,
+          totalCredits,
+          loading: false,
+          error: selectedCourses.length === 0 ? "No courses found for the next semester." : "",
+        });
+      } catch (requestError) {
+        setNextSemesterPlan({
+          yearLevel: target.yearLevel,
+          semester: target.semester,
+          courses: [],
+          totalCredits: 0,
+          loading: false,
+          error: getErrorMessage(requestError, "Failed to load next semester courses."),
+        });
+      }
+    };
+
+    loadNextSemesterCourses();
+  }, [isAdminUser, progress.semesters]);
 
   const trendData = useMemo(() => formatTrend(progress.semesters), [progress.semesters]);
 
@@ -774,30 +873,52 @@ export default function ProgressTracker() {
     const currentGPA = Number(summary.currentGPA || 0);
     const currentCredits = Number(summary.totalCreditsCompleted || 0);
     const desired = Number(targetGPA);
-    const nextCredits = Number(plannedCredits);
+    const nextCourses = nextSemesterPlan.courses || [];
 
-    if (Number.isNaN(desired) || Number.isNaN(nextCredits) || nextCredits <= 0) {
-      setGpaAdvice("Please enter a valid target GPA and planned credits.");
+    if (Number.isNaN(desired)) {
+      setGpaAdvice("Please enter a valid target GPA.");
+      setGpaSuggestions(null);
       return;
     }
 
-    const required =
-      (desired * (currentCredits + nextCredits) - currentGPA * currentCredits) / nextCredits;
-
-    if (required > 4.0) {
-      setGpaAdvice(
-        `This target GPA is not achievable in one semester with ${nextCredits} credits.`
-      );
+    if (nextSemesterPlan.loading) {
+      setGpaAdvice("Loading next semester courses. Please try again in a moment.");
+      setGpaSuggestions(null);
       return;
     }
 
-    if (required <= 0) {
-      setGpaAdvice("You have already reached this target GPA.");
+    if (nextSemesterPlan.error) {
+      setGpaAdvice(nextSemesterPlan.error);
+      setGpaSuggestions(null);
       return;
     }
 
+    if (!nextCourses.length) {
+      setGpaAdvice("No next semester courses available for GPA calculation.");
+      setGpaSuggestions(null);
+      return;
+    }
+
+    // Generate suggestions using the new utility
+    const suggestions = generateGPASuggestions({
+      currentGPA,
+      currentCredits,
+      targetGPA: desired,
+      plannedCredits: nextSemesterPlan.totalCredits,
+      nextSemesterCourses: nextCourses,
+    });
+
+    setGpaSuggestions(suggestions);
+    setExpandedScenario(0); // Always expand first scenario by default
+
+    if (!suggestions.isAchievable) {
+      setGpaAdvice(suggestions.message);
+      return;
+    }
+
+    const required = suggestions.requiredSemesterGPA;
     setGpaAdvice(
-      `You need a semester GPA of ${round2(required).toFixed(2)} in your next semester to reach your target GPA.`
+      `You need a semester GPA of ${required.toFixed(2)} in your next semester to reach your target GPA of ${desired}.`
     );
   };
 
@@ -1134,15 +1255,29 @@ export default function ProgressTracker() {
                   />
                 </div>
                 <div className="fromGroup">
-                  <label className="form-label">Planned credits for next semester</label>
+                  <label className="form-label">Next semester</label>
                   <input
-                    type="number"
+                    type="text"
                     className="form-control"
-                    placeholder="eg 15"
-                    value={plannedCredits}
-                    onChange={(e) => setPlannedCredits(e.target.value)}
+                    value={
+                      nextSemesterPlan.yearLevel && nextSemesterPlan.semester
+                        ? `Year ${nextSemesterPlan.yearLevel} Semester ${nextSemesterPlan.semester}`
+                        : "Not available"
+                    }
+                    readOnly
                   />
                 </div>
+              </div>
+
+              <div className="mt-3 text-sm text-secondary-600">
+                {nextSemesterPlan.loading && <p>Loading next semester subjects and credits...</p>}
+                {!nextSemesterPlan.loading && nextSemesterPlan.error && <p>{nextSemesterPlan.error}</p>}
+                {!nextSemesterPlan.loading && !nextSemesterPlan.error && nextSemesterPlan.courses.length > 0 && (
+                  <p>
+                    Using {nextSemesterPlan.courses.length} subject{nextSemesterPlan.courses.length > 1 ? "s" : ""} ({nextSemesterPlan.totalCredits} total credits)
+                    from Year {nextSemesterPlan.yearLevel} Semester {nextSemesterPlan.semester}.
+                  </p>
+                )}
               </div>
 
               <Button text="Calculate" className="btn-secondary mt-4" onClick={runGpaCalculator} />
@@ -1150,6 +1285,145 @@ export default function ProgressTracker() {
               {gpaAdvice && (
                 <div className="mt-4 bg-slate-50 border border-slate-200 rounded-md p-4 text-sm text-secondary-700">
                   {gpaAdvice}
+                </div>
+              )}
+
+              {gpaSuggestions && gpaSuggestions.isAchievable && gpaSuggestions.scenarios.length > 0 && (
+                <div className="mt-6 bg-amber-50 rounded-xl border border-gray-100 p-5 shadow-sm">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="text-xl text-secondary-500">💡</div>
+                    <div>
+                      <h3 className="text-base font-semibold text-secondary-800">Smart Recommendations</h3>
+                      <p className="text-sm text-secondary-500 mt-1">
+                        {gpaSuggestions.isClosestFallback
+                          ? "These are the closest course combinations based on your inputs. Click any scenario for details."
+                          : "Here are different course combinations to achieve your target. Click any scenario for details."}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {gpaSuggestions.scenarios.slice(0, 4).map((scenario, idx) => (
+                      <div
+                        key={idx}
+                        className={`border p-4 rounded-lg cursor-pointer transition-all ${
+                          expandedScenario === idx
+                            ? "bg-slate-50 border-slate-300 shadow-sm"
+                            : "bg-white border-slate-200 hover:bg-slate-50"
+                        }`}
+                        onClick={() => setExpandedScenario(expandedScenario === idx ? -1 : idx)}
+                      >
+                        {/* Summary Row */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="text-sm font-semibold text-secondary-800">
+                              Scenario {idx + 1}
+                              {idx === 0 && (
+                                <span className="ml-2 inline-block bg-primary-100 text-primary-700 text-xs font-bold px-2 py-1 rounded">
+                                  Easiest
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-secondary-600 mt-1">
+                              {scenario.num3Credit} × 3-credit + {scenario.num2Credit} × 2-credit
+                              ({scenario.totalCredits} credits total)
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-secondary-800">
+                              {getEffortLabel(scenario.effort, scenario.num3Credit + scenario.num2Credit)}
+                            </div>
+                            <div className="text-xs text-secondary-600 mt-1">
+                              {scenario.effort} high grades needed
+                            </div>
+                          </div>
+                          <div className="ml-4 text-secondary-400">
+                            {expandedScenario === idx ? "▼" : "▶"}
+                          </div>
+                        </div>
+
+                        {/* Expanded Details */}
+                        {expandedScenario === idx && (
+                          <div className="mt-4 pt-4 border-t border-slate-200 space-y-3">
+                            {Array.isArray(scenario.subjectGrades) && scenario.subjectGrades.length > 0 && (
+                              <div className="bg-white border border-slate-200 rounded-md px-3 py-2">
+                                <p className="text-xs font-semibold text-secondary-600 uppercase mb-2">Subject-Level Minimum Grades</p>
+                                <div className="space-y-2">
+                                  {scenario.subjectGrades.map((subject) => (
+                                    <div key={subject.subjectCode} className="flex items-center justify-between text-sm">
+                                      <div className="text-secondary-700">
+                                        <span className="font-semibold">{subject.subjectCode}</span> - {subject.subjectName}
+                                        <span className="text-xs text-secondary-500 ml-2">({subject.creditHours} credits)</span>
+                                      </div>
+                                      <div className="font-bold text-secondary-800">{subject.recommendedGrade}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="bg-white border border-slate-200 rounded-md px-3 py-2">
+                              <p className="text-xs font-semibold text-secondary-600 uppercase mb-2">Required Grade Distribution</p>
+                              <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
+                                {Object.entries(scenario.gradeDistribution)
+                                  .sort((a, b) => {
+                                    const gradeOrder = [
+                                      "A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "E"
+                                    ];
+                                    return gradeOrder.indexOf(a[0]) - gradeOrder.indexOf(b[0]);
+                                  })
+                                  .map(([grade, count]) => (
+                                    <div key={grade} className="flex items-center gap-2">
+                                      <span className="text-xs font-semibold text-secondary-700 min-w-12">
+                                        {grade}:
+                                      </span>
+                                      <span className="text-sm font-bold text-secondary-900">{count}</span>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+
+                            <div className="bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
+                              <p className="text-xs font-semibold text-secondary-700 uppercase mb-1">Math Check</p>
+                              <p className="text-xs text-secondary-600">
+                                Total points needed: <span className="font-bold">{scenario.totalPointsNeeded.toFixed(1)}</span> |
+                                Target GPA: <span className="font-bold">{scenario.requiredGPA.toFixed(3)}</span>
+                              </p>
+                            </div>
+
+                            <div className="text-xs text-secondary-600">
+                              <p>
+                                <strong>What this means:</strong> Earn{" "}
+                                {Object.entries(scenario.gradeDistribution)
+                                  .filter(([, count]) => count > 0)
+                                  .map(([grade, count]) => `${count} ${grade}${count > 1 ? "" : ""}`)
+                                  .join(" + ")}{" "}
+                                in your {scenario.num3Credit + scenario.num2Credit} courses.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {gpaSuggestions.scenarios.length > 4 && (
+                      <div className="text-center">
+                        <p className="text-xs text-secondary-600">
+                          + {gpaSuggestions.scenarios.length - 4} more scenarios available
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 p-3 bg-slate-50 rounded-md border border-slate-200">
+                    <p className="text-xs text-secondary-600">
+                      <strong className="text-secondary-800">How to use:</strong>{" "}
+                      {gpaSuggestions.isClosestFallback
+                        ? "Showing the closest combinations based on your next semester subjects. The easiest option requires fewer"
+                        : "Showing combinations that would help you reach your target. The easiest option requires fewer"}{" "}
+                      <em>A's and B's</em>. Choose based on the courses available to you and your confidence level.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
