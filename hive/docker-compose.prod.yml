@@ -35,7 +35,7 @@ services:
     build: ~
   
   notification-service:
-    image: ${ECR_REGISTRY}/hive/rag-service:${IMAGE_TAG}
+    image: ${ECR_REGISTRY}/hive/notification-service:${IMAGE_TAG}
     build: ~
 
   frontend:
