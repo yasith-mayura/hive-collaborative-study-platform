@@ -56,6 +56,14 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+  
+  notification-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   rag-service:
     restart: "no"
