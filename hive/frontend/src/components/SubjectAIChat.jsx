@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { BsRobot } from "react-icons/bs";
 import { IoClose, IoSend } from "react-icons/io5";
+import ReactMarkdown from "react-markdown";
 import instance from "@/lib/axios";
 
 export default function SubjectAIChat({ subjectName = "this subject", subjectCode }) {
@@ -54,13 +55,13 @@ export default function SubjectAIChat({ subjectName = "this subject", subjectCod
     } catch (error) {
       console.error("RAG query error:", error);
 
-      let errorMsg = "Sorry, I encountered an error. Please try again.";
+      let errorMsg = error.response?.data?.detail || "Sorry, I encountered an error. Please try again.";
       if (error.response?.status === 429) {
         errorMsg = "⏳ AI quota limit reached. Please wait about a minute and try again.";
       } else if (error.response?.status === 503) {
-        errorMsg = "🌐 Cannot reach the AI service. Please check your internet connection and try again.";
+        errorMsg = error.response?.data?.detail || "🌐 Cannot reach the AI service. Please check your internet connection and try again.";
       } else if (error.response?.status === 500) {
-        errorMsg = "The AI service encountered an error. Please try again in a moment.";
+        errorMsg = error.response?.data?.detail || "The AI service encountered an error. Please try again in a moment.";
       } else if (!error.response) {
         errorMsg = "Unable to reach the AI service. Make sure the RAG service is running on port 8000.";
       }
@@ -129,6 +130,18 @@ export default function SubjectAIChat({ subjectName = "this subject", subjectCod
                     <>
                       Hi there! 👋 I&apos;m your AI assistant for <strong>{subjectName}</strong>. Ask me anything about the course materials, past papers, or notes!
                     </>
+                  ) : msg.role === "ai" ? (
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                        ol: ({ children }) => <ol className="list-decimal ml-5 mb-2 space-y-1">{children}</ol>,
+                        ul: ({ children }) => <ul className="list-disc ml-5 mb-2 space-y-1">{children}</ul>,
+                        li: ({ children }) => <li>{children}</li>,
+                        strong: ({ children }) => <strong className="font-semibold text-gray-800">{children}</strong>,
+                      }}
+                    >
+                      {msg.text}
+                    </ReactMarkdown>
                   ) : (
                     msg.text
                   )}

@@ -4,6 +4,7 @@ import time
 from typing import List
 
 import google.generativeai as genai
+from google.api_core.exceptions import PermissionDenied
 
 from app.config.settings import settings
 
@@ -129,6 +130,10 @@ class EmbeddingService:
                         )
                         self.model = candidate
                     return response
+                except PermissionDenied as exc:
+                    raise RuntimeError(
+                        "service_unavailable: Gemini API key is invalid or has been revoked. Please update GEMINI_API_KEY."
+                    ) from exc
                 except Exception as exc:
                     if first_failure is None:
                         first_failure = exc

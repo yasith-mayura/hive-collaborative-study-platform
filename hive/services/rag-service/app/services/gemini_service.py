@@ -4,6 +4,7 @@ import time
 from typing import List
 
 import google.generativeai as genai
+from google.api_core.exceptions import PermissionDenied
 
 from app.config.settings import settings
 from app.models.schemas import ChatMessage
@@ -90,6 +91,10 @@ class GeminiService:
             try:
                 response = self.model.generate_content(prompt)
                 return (response.text or "").strip()
+            except PermissionDenied as exc:
+                raise RuntimeError(
+                    "service_unavailable: Gemini API key is invalid or has been revoked. Please update GEMINI_API_KEY."
+                ) from exc
             except Exception as exc:
                 if _is_retryable_error(exc):
                     if attempt < max_retries:

@@ -42,7 +42,10 @@ def query_subject_assistant(request: QueryRequest):
             raise HTTPException(status_code=429, detail="AI quota exceeded. Please wait a minute and try again.") from exc
         if "service_unavailable" in error_msg or "unavailable" in error_msg or "failed to connect" in error_msg:
             logger.warning("Query service unavailable: %s", exc)
-            raise HTTPException(status_code=503, detail="Cannot reach AI service. Please check your internet connection and try again.") from exc
+            detail = str(exc)
+            if "service_unavailable:" in detail:
+                detail = detail.split("service_unavailable:", 1)[1].strip()
+            raise HTTPException(status_code=503, detail=detail or "Cannot reach AI service. Please check your internet connection and try again.") from exc
         logger.exception("Query failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
