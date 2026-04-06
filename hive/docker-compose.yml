@@ -62,6 +62,7 @@ services:
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
       FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
       FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL}
     # ports:
     #   - "3001:3001"
     networks:
@@ -86,6 +87,7 @@ services:
       RAG_SERVICE_URL: ${RAG_SERVICE_URL}
       USER_SERVICE_URL: ${USER_SERVICE_URL}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL}
       
       # - MONGO_URI=mongodbenvironment:://mongo:27017/hive
       # AWS credentials are read from .env via env_file above
@@ -114,6 +116,7 @@ services:
       FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
       FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
       RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL}
     # ports:
     #   - "3003:3003"
     networks:
@@ -167,7 +170,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 25s
-git config pull.rebase true
+
   session-service:
     build: ./services/session-service
     environment:
@@ -177,6 +180,7 @@ git config pull.rebase true
       FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
       FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
       RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL}
     # ports:
     #   - "3006:3006"
     networks:
@@ -204,9 +208,9 @@ git config pull.rebase true
       PGVECTOR_DATABASE: ${PGVECTOR_DATABASE}
       PGVECTOR_USER: ${PGVECTOR_USER}
       PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${S3_AWS_SECRET_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${S3_AWS_REGION}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL}
       EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS}
@@ -217,6 +221,8 @@ git config pull.rebase true
       CHUNK_OVERLAP: ${CHUNK_OVERLAP}
       RESOURCE_SERVICE_URL: ${RESOURCE_SERVICE_URL}
       OUT_OF_SYLLABUS_THRESHOLD: ${OUT_OF_SYLLABUS_THRESHOLD}
+
+
     # ports:
     #   - "8000:8000"
     networks:
@@ -231,6 +237,33 @@ git config pull.rebase true
       timeout: 5s
       retries: 5
       start_period: 30s
+
+
+  notification-service:
+    build: ./services/notification-service
+    env_file: .env
+    environment:
+      PORT: 3007
+      MONGO_URI: ${MONGO_URI}
+      USER_SERVICE_URL: http://user-service:3001
+      SESSION_SERVICE_URL: http://session-service:3006
+      NOTIFICATION_SERVICE_URL: http://notification-service:3007
+    ports:
+      - "3007:3007"
+    networks:
+      local:
+    depends_on:
+      user-service:
+        condition: service_healthy
+      session-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3007/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
 
   # frontend:
   #   build: ./frontend
@@ -279,6 +312,8 @@ git config pull.rebase true
       note-service:
         condition: service_healthy
       rag-service:
+        condition: service_healthy
+      notification-service:
         condition: service_healthy
     restart: on-failure
     healthcheck:

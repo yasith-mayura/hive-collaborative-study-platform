@@ -13,20 +13,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 HIVE_DIR="$PROJECT_ROOT/hive"
 
-safe_clear() {
-  if [ -n "${TERM:-}" ] && command -v clear >/dev/null 2>&1; then
-    clear
-  else
-    printf '\n'
-  fi
-}
-
-safe_clear
+clear
 
 echo ""
-
-echo -e "${CYAN}              🐝  HIVE PLATFORM STARTUP  🐝               ${NC}"
-echo -e "${CYAN}          Collaborative Study Platform Setup             ${NC}"
+echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║                                                          ║${NC}"
+echo -e "${CYAN}║              🐝  HIVE PLATFORM STARTUP  🐝               ║${NC}"
+echo -e "${CYAN}║          Collaborative Study Platform Setup              ║${NC}"
+echo -e "${CYAN}║                                                          ║${NC}"
+echo -e "${CYAN}╚══════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
 # Check if Docker is running
@@ -43,132 +38,6 @@ echo ""
 cd "$HIVE_DIR" || {
   echo -e "${RED}✗ Error: Could not find hive directory${NC}"
   exit 1
-}
-
-collect_changed_files() {
-  {
-    git -C "$PROJECT_ROOT" diff --name-only HEAD -- 2>/dev/null
-    git -C "$PROJECT_ROOT" diff --name-only --cached -- 2>/dev/null
-    git -C "$PROJECT_ROOT" ls-files --others --exclude-standard 2>/dev/null
-  } | awk 'NF' | sort -u
-}
-
-map_file_to_service() {
-  case "$1" in
-    hive/frontend/*)
-      echo "frontend"
-      ;;
-    hive/services/api-gateway/*)
-      echo "api-gateway"
-      ;;
-    hive/services/auth-service/*)
-      echo "auth-service"
-      ;;
-    hive/services/chat-service/*)
-      echo "chat-service"
-      ;;
-    hive/services/note-service/*)
-      echo "note-service"
-      ;;
-    hive/services/progress-service/*)
-      echo "progress-service"
-      ;;
-    hive/services/rag-service/*)
-      echo "rag-service"
-      ;;
-    hive/services/resource-service/*)
-      echo "resource-service"
-      ;;
-    hive/services/session-service/*)
-      echo "session-service"
-      ;;
-    hive/services/user-service/*)
-      echo "user-service"
-      ;;
-    hive/frontend/package.json|hive/frontend/Dockerfile)
-      echo "frontend"
-      ;;
-    hive/services/api-gateway/package.json|hive/services/api-gateway/Dockerfile)
-      echo "api-gateway"
-      ;;
-    hive/services/auth-service/package.json|hive/services/auth-service/Dockerfile)
-      echo "auth-service"
-      ;;
-    hive/services/chat-service/package.json|hive/services/chat-service/Dockerfile)
-      echo "chat-service"
-      ;;
-    hive/services/note-service/package.json|hive/services/note-service/Dockerfile)
-      echo "note-service"
-      ;;
-    hive/services/progress-service/package.json|hive/services/progress-service/Dockerfile)
-      echo "progress-service"
-      ;;
-    hive/services/rag-service/requirements.txt|hive/services/rag-service/Dockerfile)
-      echo "rag-service"
-      ;;
-    hive/services/resource-service/package.json|hive/services/resource-service/Dockerfile)
-      echo "resource-service"
-      ;;
-    hive/services/session-service/package.json|hive/services/session-service/Dockerfile)
-      echo "session-service"
-      ;;
-    hive/services/user-service/package.json|hive/services/user-service/Dockerfile)
-      echo "user-service"
-      ;;
-    hive/docker-compose.yml|hive/.env|hive/.env.example)
-      echo "__full_stack__"
-      ;;
-  esac
-}
-
-compose_targets=()
-compose_mode="plain"
-
-target_exists() {
-  local candidate
-  for candidate in "${compose_targets[@]}"; do
-    if [ "$candidate" = "$1" ]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
-build_start_plan() {
-  local changed_files file service
-  changed_files="$(collect_changed_files)"
-  compose_targets=()
-  compose_mode="plain"
-
-  if [ -z "$changed_files" ]; then
-    return
-  fi
-
-  while IFS= read -r file; do
-    [ -n "$file" ] || continue
-    service="$(map_file_to_service "$file")"
-    case "$service" in
-      __full_stack__)
-        compose_mode="full"
-        compose_targets=()
-        return
-        ;;
-      "")
-        continue
-        ;;
-      *)
-        if ! target_exists "$service"; then
-          compose_targets+=("$service")
-        fi
-        ;;
-    esac
-  done <<EOF
-$changed_files
-EOF
-
-  if [ ${#compose_targets[@]} -gt 0 ]; then
-    compose_mode="targeted"
-  fi
 }
 
 # Check if .env file exists
@@ -208,16 +77,7 @@ echo -e "${GREEN}✓ Cleaned up existing containers${NC}"
 echo ""
 
 # Start services
-build_start_plan
-
-if [ "$compose_mode" = "targeted" ]; then
-  echo -e "${YELLOW}Starting only changed services with Docker Compose...${NC}"
-elif [ "$compose_mode" = "full" ]; then
-  echo -e "${YELLOW}Starting the full stack because shared config changed...${NC}"
-else
-  echo -e "${YELLOW}Starting services without rebuilding images...${NC}"
-fi
-
+echo -e "${YELLOW}Starting all services with Docker Compose...${NC}"
 echo -e "${BLUE}This may take a few minutes on first run...${NC}"
 echo ""
 
@@ -231,20 +91,7 @@ docker compose  up --no-start
 docker compose start
 
 
-start_compose
-compose_status=$?
-
-if [ "$compose_status" -ne 0 ]; then
-  echo ""
-  echo -e "${YELLOW}Initial start failed; retrying after a clean shutdown...${NC}"
-  docker compose down --remove-orphans > /dev/null 2>&1
-  sleep 3
-  compose_mode="full"
-  start_compose
-  compose_status=$?
-fi
-
-if [ "$compose_status" -ne 0 ]; then
+if [ $? -ne 0 ]; then
   echo ""
   echo -e "${RED}✗ Error: Failed to start services${NC}"
   echo -e "${YELLOW}Check the logs above for details${NC}"
@@ -256,7 +103,9 @@ echo -e "${GREEN}✓ Docker Compose started successfully${NC}"
 echo ""
 
 # Wait for services to become healthy
-echo -e "${BLUE}              Waiting for Services to be Healthy          ${NC}"
+echo -e "${BLUE}╔══════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║              Waiting for Services to be Healthy          ║${NC}"
+echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${YELLOW}This usually takes 1-2 minutes...${NC}"
 echo ""
@@ -266,7 +115,11 @@ echo ""
 
 if [ $? -eq 0 ]; then
   echo ""
-  echo -e "${CYAN}]             HIVE PLATFORM IS READY!                 ${NC}"
+  echo -e "${CYAN}╔══════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${CYAN}║                                                          ║${NC}"
+  echo -e "${CYAN}║           🎉  HIVE PLATFORM IS READY!  🎉               ║${NC}"
+  echo -e "${CYAN}║                                                          ║${NC}"
+  echo -e "${CYAN}╚══════════════════════════════════════════════════════════╝${NC}"
   echo ""
   echo -e "${BLUE}Quick Commands:${NC}"
   echo -e "  ${GREEN}$SCRIPT_DIR/check-health.sh${NC}     - Check service health status"
