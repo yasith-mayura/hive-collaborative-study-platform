@@ -110,6 +110,7 @@ jobs:
             --build-arg VITE_PROGRESS_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
             --build-arg VITE_SESSION_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
             --build-arg VITE_RAG_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
+            --build-arg VITE_NOTIFICATION_SERVICE_URL="${{ vars.VITE_BASE_URL }}" \
             --build-arg VITE_BASE_URL="${{ vars.VITE_BASE_URL }}" \
             --build-arg VITE_API_GATEWAY_URL="${{ vars.VITE_API_GATEWAY_URL }}" \
             "./frontend"
