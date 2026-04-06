@@ -1270,7 +1270,7 @@ export default function ProgressTracker() {
                 </div>
               </div>
 
-              <div className="mt-3 text-sm text-secondary-600">
+              <div className="mt-3 text-sm text-secondary-700 bg-slate-50 border border-slate-200 rounded-md px-3 py-2">
                 {nextSemesterPlan.loading && <p>Loading next semester subjects and credits...</p>}
                 {!nextSemesterPlan.loading && nextSemesterPlan.error && <p>{nextSemesterPlan.error}</p>}
                 {!nextSemesterPlan.loading && !nextSemesterPlan.error && nextSemesterPlan.courses.length > 0 && (
