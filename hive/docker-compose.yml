@@ -265,13 +265,13 @@ services:
       retries: 5
       start_period: 25s
 
-  # frontend:
-  #   build: ./frontend
-  #   environment:
   frontend:
-    build:
-      context: ./frontend
-      args:
+    build: ./frontend
+    environment:
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     args:
         VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
         VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
         VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
