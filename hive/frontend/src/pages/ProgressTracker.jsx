@@ -1230,7 +1230,7 @@ export default function ProgressTracker() {
           </div>
 
           {!isAdminUser && (
-            <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm">
+            <div className="bg-white rounded-xl border border-slate-300 p-5 shadow-sm">
               <h2 className="text-base font-semibold text-secondary-800">GPA Calculator</h2>
               <p className="text-sm text-secondary-500 mt-1">
                 Calculate what GPA you need to achieve your target.
