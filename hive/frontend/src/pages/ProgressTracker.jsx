@@ -1239,11 +1239,11 @@ export default function ProgressTracker() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="fromGroup">
                   <label className="form-label">Current cumulative GPA</label>
-                  <input type="number" className="form-control" value={currentGPA.toFixed(2)} readOnly />
+                  <input type="text" className="form-control" value={currentGPA.toFixed(2)} readOnly />
                 </div>
                 <div className="fromGroup">
                   <label className="form-label">Current total credits</label>
-                  <input type="number" className="form-control" value={creditsCompleted} readOnly />
+                  <input type="text" className="form-control" value={creditsCompleted} readOnly />
                 </div>
                 <div className="fromGroup">
                   <label className="form-label">Target cumulative GPA</label>
