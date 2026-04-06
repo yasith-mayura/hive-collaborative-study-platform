@@ -68,6 +68,7 @@ jobs:
             progress-service
             session-service
             rag-service
+            notification-service
           )
 
           for svc in "${services[@]}"; do
