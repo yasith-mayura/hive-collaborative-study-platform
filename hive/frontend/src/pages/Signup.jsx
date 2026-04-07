@@ -64,10 +64,13 @@ function Signup() {
     <div className="flex flex-col flex-1 bg-[#FDFCF9] min-h-screen font-inter">
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto p-6">
 
-        <div className="flex justify-center mb-8">
-          <div className="w-32 h-32 rounded-3xl overflow-hidden bg-white/50 backdrop-blur-sm p-2">
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-32 h-32 rounded-3xl overflow-hidden bg-white/50 backdrop-blur-sm p-2 mb-4">
             <img src="/splash.gif" alt="Hive" className="w-full h-full object-contain" />
           </div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight text-center">
+            Hive Collaborative Study Platform
+          </h1>
         </div>
 
         <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#F1EFE9] p-6">

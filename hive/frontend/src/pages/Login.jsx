@@ -68,13 +68,16 @@ function Login() {
     <div className="flex flex-col flex-1 bg-[#FDFCF9] min-h-screen font-inter">
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto p-6">
 
-        <div className="flex justify-center mb-8">
-          <div className="w-32 h-32 rounded-3xl overflow-hidden bg-white/50 backdrop-blur-sm p-2">
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-32 h-32 rounded-3xl overflow-hidden bg-white/50 backdrop-blur-sm p-2 mb-4">
             <img src="/splash.gif" alt="Hive" className="w-full h-full object-contain" />
           </div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight text-center">
+            Hive Collaborative Study Platform
+          </h1>
         </div>
 
-        <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#F1EFE9] p-6">
+        <div className="bg-white rounded-[1rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#F1EFE9] p-6">
           <form
             onSubmit={handleSubmit(onSubmit)}
             onKeyDown={(e) => {
@@ -92,7 +95,7 @@ function Login() {
                 placeholder="Email address"
                 register={register}
                 error={errors.email}
-                className="bg-[#F7F6F2] border-none rounded-2xl h-14 px-6 text-sm placeholder:text-[#BBB4A5] focus:bg-white transition-all shadow-none"
+                className="bg-[#F7F6F2] border-none rounded-[0.75rem] h-14 px-6 text-sm placeholder:text-[#BBB4A5] focus:bg-white transition-all shadow-none"
               />
             </div>
 
@@ -104,7 +107,7 @@ function Login() {
                 error={errors.password}
                 hasicon
                 placeholder="Password"
-                className="bg-[#F7F6F2] border-none rounded-2xl h-14 px-6 text-sm placeholder:text-[#BBB4A5] focus:bg-white transition-all shadow-none"
+                className="bg-[#F7F6F2] border-none rounded-[0.75rem] h-14 px-6 text-sm placeholder:text-[#BBB4A5] focus:bg-white transition-all shadow-none"
               />
             </div>
 
@@ -112,7 +115,7 @@ function Login() {
               <Button
                 type="submit"
                 text="Login"
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold h-14 rounded-2xl transition-all shadow-lg shadow-slate-900/20 capitalize"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold h-14 rounded-[0.75rem] transition-all shadow-lg shadow-slate-900/20 capitalize"
                 isLoading={loading}
               />
             </div>
