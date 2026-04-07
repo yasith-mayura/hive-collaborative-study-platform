@@ -281,11 +281,11 @@ export default function Resources() {
                         {resource.title || resource.fileName || "Untitled Resource"}
                       </h4>
                       {resource.resourceType !== "past_paper" && (resource.isEmbedded ? (
-                        <span className="text-xs bg-success-500/10 text-success-500 px-2 py-1 rounded-full font-medium">
+                        <span className="text-xs bg-success-500/10 text-success-500 px-2 py-1 rounded-full font-medium whitespace-nowrap shrink-0">
                           AI Ready
                         </span>
                       ) : (
-                        <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full font-medium">
+                        <span className="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full font-medium whitespace-nowrap shrink-0">
                           Processing...
                         </span>
                       ))}

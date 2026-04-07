@@ -8,6 +8,10 @@ import Textinput from "@/components/ui/Textinput";
 import Notification from "@/components/ui/Notification";
 import { createUser } from "@/services";
 
+const BUTTON_COLORS = {
+  primary: { backgroundColor: "#DDF2FF", color: "#0A435B", border: "1px solid #00BFD8" },
+};
+
 const UserValidationSchema = yup
   .object({
     name: yup.string().required("Name is Required"),
@@ -94,7 +98,8 @@ const AddNewUserModel = ({ isOpen, closeModal, onUserAdded }) => {
           />
           <Button
             text="+ Add User"
-            className="btn-primary"
+            className="rounded-md"
+            style={BUTTON_COLORS.primary}
             type="submit"
             isLoading={loading}
           />

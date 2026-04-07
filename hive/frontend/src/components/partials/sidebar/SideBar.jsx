@@ -158,12 +158,11 @@ const AppSidebar = () => {
 
   return (
     <aside
-      className={`fixed top-0 left-0 h-screen bg-white text-secondary-500 transition-all border duration-300 ease-in-out border-gray-200 z-50 shadow-base
-        ${isExpanded || isMobileOpen ? "w-[260px] lg:w-[288px]" : "w-[88px]"}
-        ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
-        lg:translate-x-0`}
+      className={`fixed top-4 left-0 lg:left-4 bottom-4 h-[calc(100vh-2rem)] bg-white text-secondary-500 transition-transform duration-300 ease-in-out border border-gray-100 z-[60] shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem]
+        ${isExpanded ? "lg:w-[300px]" : "w-[300px] lg:w-[88px]"}
+        ${isMobileOpen ? "translate-x-4 lg:translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
     >
-      <div className="flex items-center justify-between h-20 px-5 border-b border-gray-100">
+      <div className="flex items-center justify-center h-24 relative mt-2">
         <Link to="/" onClick={() => isMobileOpen && toggleMobileSidebar()}>
           {isExpanded || isMobileOpen ? (
             <>
@@ -175,7 +174,7 @@ const AppSidebar = () => {
         </Link>
         <button
           onClick={toggleMobileSidebar}
-          className="text-secondary-400 lg:hidden"
+          className="text-secondary-400 lg:hidden absolute right-6 top-1/2 -translate-y-1/2"
         >
           <Icon icon="heroicons-outline:x-mark" className="w-6 h-6" />
         </button>
@@ -191,15 +190,14 @@ const AppSidebar = () => {
                   // Submenu Button
                   <button
                     onClick={() => handleSubmenuToggle(index)}
-                    className={`flex items-center w-full px-4 py-3 rounded-md hover:bg-primary-100 transition
-            ${!(isExpanded || isMobileOpen) ? "justify-center" : ""}
-            ${openSubmenu === index ? "bg-primary-100 text-primary-800" : ""}`}
+                    className={`flex items-center w-full px-4 py-3.5 transition-all duration-200 ${!(isExpanded || isMobileOpen) ? "justify-center mx-2" : "mx-4"}
+            ${openSubmenu === index ? "bg-primary-300 text-primary-900 rounded-full shadow-sm font-bold" : "text-secondary-400 hover:bg-primary-50 rounded-full hover:text-secondary-600"}`}
                   >
                     <Icon
                       icon={`heroicons-outline:${item.icon}`}
-                      className={`w-6 h-6`}
+                      className="w-6 h-6 flex-shrink-0"
                     />
-                    {(isExpanded || isMobileOpen) && <span className="ml-3">{item.name}</span>}
+                    {(isExpanded || isMobileOpen) && <span className="ml-2 whitespace-nowrap">{item.name}</span>}
                     {(isExpanded || isMobileOpen) && (
                       <Icon
                         icon={`heroicons-outline:chevron-down`}
@@ -213,16 +211,16 @@ const AppSidebar = () => {
                   <Link
                     to={item.path}
                     onClick={() => isMobileOpen && toggleMobileSidebar()}
-                    className={`flex items-center px-4 py-3 rounded-md transition ${!(isExpanded || isMobileOpen) ? "justify-center" : ""} ${isItemActive(item.path)
-                      ? "bg-primary-300 font-semibold text-primary-900"
-                      : "bg-primary-50 hover:bg-primary-100"
+                    className={`flex items-center px-4 py-3.5 transition-all duration-200 ${!(isExpanded || isMobileOpen) ? "justify-center mx-2" : "mx-4"} ${isItemActive(item.path)
+                      ? "bg-primary-300 font-bold text-primary-900 rounded-full shadow-sm"
+                      : "text-secondary-400 hover:bg-primary-50 rounded-full hover:text-secondary-600"
                       }`}
                   >
                     <Icon
                       icon={`heroicons-outline:${item.icon}`}
-                      className={`w-6 h-6 `}
+                      className="w-6 h-6 flex-shrink-0"
                     />
-                    {(isExpanded || isMobileOpen) && <span className="ml-3">{item.name}</span>}
+                    {(isExpanded || isMobileOpen) && <span className="ml-2 font-medium whitespace-nowrap">{item.name}</span>}
                   </Link>
                 )}
               </li>
@@ -230,25 +228,31 @@ const AppSidebar = () => {
         </ul>
       </nav>
 
-      {/* Switch Mode Button — only for admins */}
-      {role === "admin" && (
-        <div className="absolute bottom-0 left-0 w-full px-4 py-4 border-t border-gray-200">
+
+      {/* Decorative Bottom Card & Switch Mode — only for admins */}
+      <div className="absolute bottom-8 left-0 w-full px-6 space-y-4">
+
+        {(role === "admin" || role === "superadmin") && (
           <button
             onClick={handleModeSwitch}
-            className={`flex items-center w-full px-4 py-3 rounded-md bg-secondary-100 hover:bg-secondary-200 text-secondary-700 font-medium transition ${!isExpanded && !isMobileOpen ? "justify-center" : ""}`}
+            className={`flex items-center w-full px-5 py-3.5 rounded-full bg-secondary-50 hover:bg-secondary-100 text-secondary-700 font-bold transition-all text-force-tiny ${!isExpanded && !isMobileOpen ? "justify-center" : ""}`}
+            style={{ fontSize: "12px" }}
           >
             <Icon
-              icon={viewMode === "admin" ? "heroicons-outline:academic-cap" : "heroicons-outline:shield-check"}
-              className="w-5 h-5"
+              icon={viewMode === "admin" || viewMode === "superadmin" ? "heroicons-outline:academic-cap" : "heroicons-outline:shield-check"}
+              className="w-5 h-5 flex-shrink-0"
             />
             {(isExpanded || isMobileOpen) && (
-              <span className="ml-3 text-sm">
-                {viewMode === "admin" ? "Switch to Student" : "Switch to Admin"}
+              <span
+                className="ml-3 uppercase tracking-widest font-bold text-force-tiny"
+                style={{ fontSize: "12px" }}
+              >
+                {viewMode === "admin" || viewMode === "superadmin" ? "Student Mode" : "Admin Mode"}
               </span>
             )}
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </aside>
   );
 };

@@ -143,7 +143,7 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-[100] mt-2 w-[360px] rounded-md border border-gray-200 bg-white shadow-base2">
+        <div className="absolute right-0 z-[100] mt-2 w-[360px] max-w-[calc(100vw-1rem)] rounded-md border border-gray-200 bg-white shadow-base2">
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
             <h3 className="text-sm font-semibold text-secondary-700">Notifications</h3>
             <button
@@ -172,9 +172,8 @@ export default function NotificationBell() {
                   }}
                   role="button"
                   tabIndex={0}
-                  className={`relative block w-full border-b border-gray-100 px-4 py-3 text-left hover:bg-primary-50 ${
-                    item.isRead ? "bg-white" : "bg-primary-50/50"
-                  }`}
+                  className={`relative block w-full border-b border-gray-100 px-4 py-3 text-left hover:bg-primary-50 ${item.isRead ? "bg-white" : "bg-primary-50/50"
+                    }`}
                 >
                   {!item.isRead && <span className="absolute left-0 top-0 h-full w-1 bg-primary-500" />}
                   <div className="flex items-start gap-3">

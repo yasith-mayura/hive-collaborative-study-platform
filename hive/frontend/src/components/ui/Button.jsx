@@ -15,6 +15,7 @@ function Button({
   link,
   onClick,
   div,
+  style,
 }) {
   return (
     <>
@@ -22,9 +23,9 @@ function Button({
         <button
           type={type}
           onClick={onClick}
-          className={`btn btn inline-flex justify-center   ${
-            isLoading ? " pointer-events-none" : ""
-          }
+          style={style}
+          className={`btn btn inline-flex justify-center   ${isLoading ? " pointer-events-none" : ""
+            }
         ${disabled ? " opacity-40 cursor-not-allowed" : ""}
         ${className}`}
         >
@@ -83,9 +84,9 @@ function Button({
       {!link && div && (
         <div
           onClick={onClick}
-          className={`btn btn inline-flex justify-center   ${
-            isLoading ? " pointer-events-none" : ""
-          }
+          style={style}
+          className={`btn btn inline-flex justify-center   ${isLoading ? " pointer-events-none" : ""
+            }
         ${disabled ? " opacity-40 cursor-not-allowed" : ""}
         ${className}`}
         >
@@ -144,9 +145,9 @@ function Button({
       {link && !div && (
         <Link
           to={link}
-          className={`btn btn inline-flex justify-center   ${
-            isLoading ? " pointer-events-none" : ""
-          }
+          style={style}
+          className={`btn btn inline-flex justify-center   ${isLoading ? " pointer-events-none" : ""
+            }
         ${disabled ? " opacity-40 cursor-not-allowed" : ""}
         ${className}`}
         >

@@ -65,7 +65,7 @@ const AdminProfile = ({ admin, onClose, onDelete, onDemote, onUpdate }) => {
       <div className="flex justify-start mb-8">
         <div className="relative w-20 h-20">
           <div className="w-20 h-20 rounded-full bg-blue-500 flex items-center justify-center overflow-hidden text-white font-bold text-2xl">
-            {admin?.name?.split(" ").map(n => n[0]).slice(0,2).join('').toUpperCase()}
+            {admin?.name?.split(" ").map(n => n[0]).slice(0, 2).join('').toUpperCase()}
           </div>
         </div>
       </div>

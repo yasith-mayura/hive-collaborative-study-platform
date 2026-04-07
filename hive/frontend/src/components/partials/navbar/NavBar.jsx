@@ -1,18 +1,12 @@
-import { useEffect, useRef, useState, React } from "react";
-import { Link, useLocation } from "react-router-dom";
-
+import { useLocation } from "react-router-dom";
 import { useSidebar } from "@/context/sidebarContext";
 import { useAuth } from "@/context/AuthContext";
-
 import UserDropdown from "./UserDropdown";
-import NewBtn from "./Newbtn";
 import NotificationBell from "@/components/NotificationBell";
 
 const AppHeader = () => {
-  const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
   const { user, role } = useAuth();
-  const inputRef = useRef(null);
 
   const location = useLocation();
   const segments = location.pathname.split("/").filter(Boolean);
@@ -30,30 +24,19 @@ const AppHeader = () => {
     }
   };
 
-  // console.log(locationName);
-  // console.log(location);
-
-  const toggleApplicationMenu = () => {
-    setApplicationMenuOpen(!isApplicationMenuOpen);
-  };
-
   return (
-    <header className="sticky top-0 flex w-full bg-white border-gray-200 z-40 lg:border-b">
-      <div className="flex flex-col items-center justify-between grow lg:flex-row lg:px-6 py-3">
-        <div className="flex items-center justify-between w-full gap-2 px-3 py-1 border-b border-gray-200 sm:gap-4 lg:justify-normal lg:border-b-0 lg:px-0">
+    <header className="sticky top-4 flex items-center h-16 bg-white/50 backdrop-blur-md border border-gray-200 z-[50] rounded-full shadow-sm mx-4 lg:mx-0 mb-6">
+      <div className="flex items-center justify-between w-full px-3 lg:px-6">
+
+        {/* Left: Hamburger toggle + Page title */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
-            className="items-center justify-center w-5 h-5 text-gray-500 border-gray-200 rounded-md lg:flex lg:h-8 lg:w-8 lg:border"
+            className="flex items-center justify-center w-8 h-8 text-gray-500 rounded-md border border-transparent hover:border-gray-200 hover:bg-gray-50 transition"
             onClick={handleToggle}
             aria-label="Toggle Sidebar"
           >
             {isMobileOpen ? (
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path
                   fillRule="evenodd"
                   clipRule="evenodd"
@@ -62,13 +45,7 @@ const AppHeader = () => {
                 />
               </svg>
             ) : (
-              <svg
-                width="16"
-                height="12"
-                viewBox="0 0 16 12"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
+              <svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path
                   fillRule="evenodd"
                   clipRule="evenodd"
@@ -78,46 +55,20 @@ const AppHeader = () => {
               </svg>
             )}
           </button>
-          <h1 className="text-lg font-semibold flex items-center gap-2">
+
+          <h1 className="text-base sm:text-lg font-semibold flex items-center gap-1.5">
             {mainModule}
-            {(subModule && (subModule !== "New")) && (
+            {subModule && subModule !== "New" && (
               <>
-                <span className="font-semibold">/</span>
-                <span className="text-sm font-semibold">{subModule}</span>
+                <span className="font-semibold text-gray-400">/</span>
+                <span className="text-sm font-semibold text-gray-500">{subModule}</span>
               </>
             )}
           </h1>
-
-
-          <button
-            onClick={toggleApplicationMenu}
-            className="flex items-center justify-center w-8 h-8 text-gray-700 rounded-md hover:bg-gray-100 lg:hidden"
-          >
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M5.99902 10.4951C6.82745 10.4951 7.49902 11.1667 7.49902 11.9951V12.0051C7.49902 12.8335 6.82745 13.5051 5.99902 13.5051C5.1706 13.5051 4.49902 12.8335 4.49902 12.0051V11.9951C4.49902 11.1667 5.1706 10.4951 5.99902 10.4951ZM17.999 10.4951C18.8275 10.4951 19.499 11.1667 19.499 11.9951V12.0051C19.499 12.8335 18.8275 13.5051 17.999 13.5051C17.1706 13.5051 16.499 12.8335 16.499 12.0051V11.9951C16.499 11.1667 17.1706 10.4951 17.999 10.4951ZM13.499 11.9951C13.499 11.1667 12.8275 10.4951 11.999 10.4951C11.1706 10.4951 10.499 11.1667 10.499 11.9951V12.0051C10.499 12.8335 11.1706 13.5051 11.999 13.5051C12.8275 13.5051 13.499 12.8335 13.499 12.0051V11.9951Z"
-                fill="currentColor"
-              />
-            </svg>
-          </button>
         </div>
-        <div
-          className={`${isApplicationMenuOpen ? "flex" : "hidden"
-            } justify-between items-center  w-full gap-10 px-5 py-0 lg:flex shadow-theme-md lg:justify-end lg:px-5 lg:shadow-none`}
-        >
-          {/* <>
-            {role === "superadmin" && (
-              <NewBtn />
-            )}
-          </> */}
+
+        {/* Right: Notification bell + User avatar — always visible on all screen sizes */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <NotificationBell />
           <UserDropdown
             user={{
@@ -126,6 +77,7 @@ const AppHeader = () => {
             }}
           />
         </div>
+
       </div>
     </header>
   );

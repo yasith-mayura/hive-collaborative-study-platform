@@ -4,6 +4,7 @@ import Drawer from "@/components/ui/Drawer";
 import Notification from "@/components/ui/Notification";
 import UserProfile from "@/pages/admin/components/UserProfile";
 import UserSearch from "@/pages/admin/components/UserSearch";
+import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 import { getAllUsers, getUserByStudentNumber, deleteUser, updateUser } from "@/services";
 
 const BUTTON_COLORS = {
@@ -19,6 +20,9 @@ function UserManagementSuperAdmin() {
   const [fetchLoading, setFetchLoading] = useState(true);
   const [openDrawer, setOpenDrawer] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const columns = [
     { label: "Name", field: "name" },
@@ -99,8 +103,15 @@ function UserManagementSuperAdmin() {
   };
 
   const handleDeleteUser = async (studentNumber) => {
+    setUserToDelete(studentNumber);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    setDeleteLoading(true);
     try {
-      const result = await deleteUser(studentNumber);
+      const result = await deleteUser(userToDelete);
       Notification.success("User deactivated successfully");
       if (result?.warning) {
         Notification.warning(result.warning);
@@ -109,6 +120,10 @@ function UserManagementSuperAdmin() {
       fetchUsers();
     } catch (error) {
       Notification.error(error?.response?.data?.message || "Failed to delete user");
+    } finally {
+      setDeleteLoading(false);
+      setIsDeleteModalOpen(false);
+      setUserToDelete(null);
     }
   };
 
@@ -246,6 +261,15 @@ function UserManagementSuperAdmin() {
           />
         )}
       </Drawer>
+
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDeleteUser}
+        isLoading={deleteLoading}
+        title="Deactivate Student"
+        message="Are you sure you want to deactivate this student? They will no longer have access to the platform."
+      />
     </>
   );
 }

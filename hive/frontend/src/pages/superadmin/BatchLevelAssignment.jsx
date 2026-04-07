@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Notification from "@/components/ui/Notification";
+import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 import {
   assignBatchLevel,
   getBatchLevelBatches,
@@ -36,6 +37,8 @@ export default function BatchLevelAssignment() {
   const [selectedLevel, setSelectedLevel] = useState(null);
   const [selectedBatch, setSelectedBatch] = useState("");
   const [conflicts, setConflicts] = useState([]);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const assignmentByLevel = useMemo(() => {
     const map = new Map();
@@ -109,15 +112,22 @@ export default function BatchLevelAssignment() {
     }
   };
 
-  const unassignBatch = async (batch, level) => {
-    const confirmed = window.confirm(`Remove Batch ${batch} from Level ${level}?`);
-    if (!confirmed) return;
+  const unassignBatch = (batch, level) => {
+    setDeleteTarget({ batch, level });
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmUnassign = async () => {
+    if (!deleteTarget) return;
+    const { batch, level } = deleteTarget;
 
     try {
       setSaving(true);
       await removeBatchLevel(batch);
       Notification.success(`Batch ${batch} removed from Level ${level}`);
       loadData();
+      setIsDeleteModalOpen(false);
+      setDeleteTarget(null);
     } catch (error) {
       Notification.error(getErrorMessage(error, "Failed to remove assignment."));
     } finally {
@@ -254,6 +264,15 @@ export default function BatchLevelAssignment() {
           )}
         </div>
       </Modal>
+
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmUnassign}
+        isLoading={saving}
+        title="Remove Batch Assignment"
+        message={deleteTarget ? `Are you sure you want to remove Batch ${deleteTarget.batch} from Level ${deleteTarget.level}? This will detach the batch from the given academic level.` : ""}
+      />
     </div>
   );
 }

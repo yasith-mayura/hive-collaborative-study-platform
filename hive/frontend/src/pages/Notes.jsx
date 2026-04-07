@@ -3,8 +3,10 @@ import { FaSearch, FaPaperPlane, FaEllipsisV } from "react-icons/fa";
 import { AiOutlineClose } from "react-icons/ai";
 import { HiDocumentText } from "react-icons/hi";
 import { RiVoiceprintLine } from "react-icons/ri";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import { useAuth } from "@/context/AuthContext";
-import { getNotes , createNote, deleteNote, updateNote } from "@/services";
+import { getNotes, createNote, deleteNote, updateNote } from "@/services";
 
 export default function NotesPage() {
   const { user, token, loading } = useAuth();
@@ -23,6 +25,37 @@ export default function NotesPage() {
 
 
   const recognitionRef = useRef(null);
+
+  const modules = {
+    toolbar: [
+      [{ header: [1, 2, 3, false] }],
+      ["bold", "italic", "underline", "strike"],
+      [{ list: "ordered" }, { list: "bullet" }],
+      ["blockquote", "code-block"],
+      ["link", "color", "background"],
+      ["clean"],
+    ],
+  };
+
+  const formats = [
+    "header",
+    "bold",
+    "italic",
+    "underline",
+    "strike",
+    "list",
+    "bullet",
+    "blockquote",
+    "code-block",
+    "link",
+    "color",
+    "background",
+  ];
+
+  const stripHtml = (html) => {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    return doc.body.textContent || "";
+  };
 
   const getAutoTopic = (content = "") =>
     content.trim().split(/\s+/).slice(0, 4).join(" ");
@@ -258,7 +291,7 @@ export default function NotesPage() {
                   <HiDocumentText className="text-gray-600 text-lg shrink-0" />
                   <span className="text-3xl truncate">
                     {note.title ||
-                      note.content.split(" ").slice(0, 4).join(" ")}
+                      stripHtml(note.content).split(" ").slice(0, 4).join(" ")}
                   </span>
                 </div>
 
@@ -353,7 +386,7 @@ export default function NotesPage() {
                       }}
                     >
                       {note.title ||
-                        note.content.split(" ").slice(0, 4).join(" ")}
+                        stripHtml(note.content).split(" ").slice(0, 4).join(" ")}
                     </div>
                   ))
                 ) : (
@@ -388,30 +421,36 @@ export default function NotesPage() {
               className="w-full mb-3 rounded-xl border border-gray-300 px-4 py-2"
             />
 
-            <div className="flex items-center w-full">
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="Type or use voice to create a note..."
-                className="w-full p-4 rounded-xl border border-gray-400 bg-transparent overflow-auto"
-                style={{ minHeight: "10rem", resize: "vertical" }}
-              />
+            <div className="flex items-start w-full gap-3">
+              <div className="flex-1 bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm quill-container">
+                <ReactQuill
+                  theme="snow"
+                  value={text}
+                  onChange={setText}
+                  modules={modules}
+                  formats={formats}
+                  placeholder="Type or use voice to create a note..."
+                  className="h-64 sm:h-80"
+                />
+              </div>
 
-              {isListening ? (
-                <button
-                  onClick={stopVoice}
-                  className="ml-3 w-11 h-11 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-700 transition"
-                >
-                  <AiOutlineClose className="text-white" />
-                </button>
-              ) : (
-                <button
-                  onClick={startVoice}
-                  className="ml-3 w-11 h-11 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-900 transition"
-                >
-                  <RiVoiceprintLine className="text-yellow-400 text-lg" />
-                </button>
-              )}
+              <div className="flex flex-col gap-2 pt-2">
+                {isListening ? (
+                  <button
+                    onClick={stopVoice}
+                    className="w-12 h-12 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 transition shadow-lg animate-pulse"
+                  >
+                    <AiOutlineClose className="text-white text-xl" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={startVoice}
+                    className="w-12 h-12 flex items-center justify-center rounded-full bg-slate-800 hover:bg-slate-900 transition shadow-lg"
+                  >
+                    <RiVoiceprintLine className="text-yellow-400 text-xl" />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
@@ -458,12 +497,16 @@ export default function NotesPage() {
               className="w-full mb-3 rounded-xl border border-gray-300 px-4 py-2 font-semibold"
             />
 
-            <textarea
-              className="w-full p-4 text-gray-900 bg-white rounded-md border border-gray-300 resize-none overflow-auto"
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              style={{ minHeight: "12rem", maxHeight: "60vh" }}
-            />
+            <div className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm quill-container">
+              <ReactQuill
+                theme="snow"
+                value={editText}
+                onChange={setEditText}
+                modules={modules}
+                formats={formats}
+                className="h-80 sm:h-96"
+              />
+            </div>
 
             <div className="mt-4 flex justify-end gap-2">
               <button

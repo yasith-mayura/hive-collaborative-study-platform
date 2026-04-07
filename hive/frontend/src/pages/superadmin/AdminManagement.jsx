@@ -7,6 +7,7 @@ import AdminProfile from "@/pages/superadmin/components/AdminProfile";
 import AdminSearch from "@/pages/superadmin/components/AdminSearch";
 import { getAllAdmins, deleteAdmin, demoteAdminToUser, updateAdmin } from "@/services";
 import PromoteUserToAdmin from "./components/PromoteUserToAdmin";
+import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 
 const BUTTON_COLORS = {
   primary: { backgroundColor: "#DDF2FF", color: "#0A435B", border: "1px solid #00BFD8" },
@@ -23,6 +24,9 @@ function AdminManagement() {
   const [openDrawer, setOpenDrawer] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState(null);
   const [openPromoteModal, setOpenPromoteModal] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [adminToDelete, setAdminToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const columns = [
     { label: "Name", field: "name" },
@@ -75,8 +79,15 @@ function AdminManagement() {
   };
 
   const handleDeleteAdmin = async (studentNumber) => {
+    setAdminToDelete(studentNumber);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteAdmin = async () => {
+    if (!adminToDelete) return;
+    setDeleteLoading(true);
     try {
-      const result = await deleteAdmin(studentNumber);
+      const result = await deleteAdmin(adminToDelete);
       Notification.success("Admin deactivated successfully");
       if (result?.warning) {
         Notification.warning(result.warning);
@@ -85,6 +96,10 @@ function AdminManagement() {
       fetchAdmins();
     } catch (error) {
       Notification.error(error?.response?.data?.message || "Failed to delete admin");
+    } finally {
+      setDeleteLoading(false);
+      setIsDeleteModalOpen(false);
+      setAdminToDelete(null);
     }
   };
 
@@ -128,7 +143,7 @@ function AdminManagement() {
             />
           </div>
           <button
-            className="inline-flex items-center justify-center gap-2 rounded-sm py-2 px-4 shadow-theme-xs transition-opacity hover:opacity-90"
+            className="inline-flex items-center justify-center gap-2 rounded-sm py-2 px-4 shadow-theme-xs transition-opacity hover:opacity-90 whitespace-nowrap shrink-0"
             style={BUTTON_COLORS.success}
             onClick={() => setOpenPromoteModal(true)}
           >
@@ -242,6 +257,15 @@ function AdminManagement() {
         isOpen={openPromoteModal}
         closeModal={() => setOpenPromoteModal(false)}
         onUserPromoted={fetchAdmins}
+      />
+
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDeleteAdmin}
+        isLoading={deleteLoading}
+        title="Deactivate Admin"
+        message="Are you sure you want to deactivate this administrator? They will lose all management privileges."
       />
     </>
   );

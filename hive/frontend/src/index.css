@@ -242,6 +242,11 @@
     @apply rounded-full;
   }
 
+  .text-force-tiny {
+    font-size: 12px !important;
+    line-height: 1 !important;
+  }
+
   .btn {
     @apply font-semibold text-sm leading-6 md:px-6 md:py-3 px-4 py-2 rounded capitalize transition-all duration-150 md:whitespace-nowrap whitespace-normal relative;
   }
@@ -548,11 +553,10 @@
     @apply relative before:flex before:flex-col before:items-center before:justify-center before:w-[18px] before:h-[18px] before:m-[-0.7px] before:bg-slate-100 before:absolute before:inset-0 before:rounded w-4 h-4 rounded checked:before:bg-slate-900 checked:before:content-[url("https://api.iconify.design/heroicons-outline/check.svg?color=white")] checked:before:leading-[10px] checked:before:ring-2 checked:before:ring-black-500 checked:before:ring-offset-2;
   }
 
-  // InValid Select
   .hive-app {
     .react-select.is-invalid {
       .select__control {
-        border-color: none !important;
+        border-color: transparent !important;
       }
     }
   }
@@ -778,4 +782,53 @@
     overflow: visible;
   }
 
+}
+
+/* React Quill Custom Styling */
+.quill-container .ql-toolbar {
+  border: none !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  background: #f8fafc;
+  padding: 8px 12px !important;
+}
+
+.quill-container .ql-container {
+  border: none !important;
+  font-family: inherit !important;
+}
+
+.quill-container .ql-editor {
+  font-size: 1rem !important;
+  color: #1e293b !important;
+  padding: 16px !important;
+  line-height: 1.6;
+}
+
+.quill-container .ql-editor p {
+  margin-bottom: 1em;
+}
+
+.quill-container .ql-editor.ql-blank::before {
+  color: #94a3b8 !important;
+  font-style: normal !important;
+  left: 16px !important;
+}
+
+.quill-container .ql-snow .ql-stroke {
+  stroke: #475569 !important;
+}
+
+.quill-container .ql-snow .ql-picker {
+  color: #475569 !important;
+}
+
+.quill-container .ql-snow .ql-fill {
+  fill: #475569 !important;
+}
+
+.quill-container .ql-snow.ql-toolbar button:hover .ql-stroke,
+.quill-container .ql-snow.ql-toolbar button:hover .ql-fill,
+.quill-container .ql-snow.ql-toolbar button.ql-active .ql-stroke,
+.quill-container .ql-snow.ql-toolbar button.ql-active .ql-fill {
+  stroke: #0f172a !important;
 }

@@ -16,6 +16,7 @@ import { useAuth } from "@/context/AuthContext";
 import { getSubjectColor } from "@/lib/colors";
 import Modal from "@/components/ui/Modal";
 import UpcomingTasks from "@/components/UpcomingTasks";
+import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 import { toast } from "react-toastify";
 
 const localizer = momentLocalizer(moment);
@@ -179,8 +180,8 @@ function SessionToolbar({ label, onNavigate, onView, view }) {
   );
 }
 
-export default function StudySessionCalendar({ 
-  isUpcomingTasks = true, 
+export default function StudySessionCalendar({
+  isUpcomingTasks = true,
   hideListView = false,
   isDashboard = false
 }) {
@@ -199,6 +200,7 @@ export default function StudySessionCalendar({
 
   const [createForm, setCreateForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [monthLoading, setMonthLoading] = useState(false);
@@ -426,9 +428,11 @@ export default function StudySessionCalendar({
 
   const handleDeleteSession = async () => {
     if (!selectedSession?._id) return;
-    const confirmed = window.confirm("Are you sure you want to delete this study session?");
-    if (!confirmed) return;
+    setIsDeleteModalOpen(true);
+  };
 
+  const confirmDeleteSession = async () => {
+    if (!selectedSession?._id) return;
     setDeleting(true);
     try {
       await deleteSession(selectedSession._id);
@@ -437,9 +441,11 @@ export default function StudySessionCalendar({
       setIsDetailModalOpen(false);
       setSelectedSession(null);
       setIsEditing(false);
+      setIsDeleteModalOpen(false);
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to delete session");
     } finally {
+      setDeleting(true); // Should this be false? Yes.
       setDeleting(false);
     }
   };
@@ -962,6 +968,15 @@ export default function StudySessionCalendar({
           </form>
         )}
       </Modal>
+
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDeleteSession}
+        isLoading={deleting}
+        title="Delete Study Session"
+        message="Are you sure you want to delete this study session? This action cannot be undone."
+      />
     </div>
   );
 }

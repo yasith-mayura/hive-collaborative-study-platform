@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from "react";
 import Icon from "@/components/ui/Icon";
+import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 import { useAuth } from "@/context/AuthContext";
-import { getFlashCardDecks,
+import {
+  getFlashCardDecks,
   createFlashCardDeck,
   updateFlashCardDeck,
-  deleteFlashCardDeck, } from "@/services";
+  deleteFlashCardDeck,
+} from "@/services";
 
 
 // Card color themes — assigned per card automatically (light pastel colors)
@@ -25,6 +28,7 @@ export default function FlashCards() {
   const [decks, setDecks] = useState([]);
   const [selectedDeckId, setSelectedDeckId] = useState(null);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -35,6 +39,9 @@ export default function FlashCards() {
   const [isLoadingDecks, setIsLoadingDecks] = useState(true);
   const [requestError, setRequestError] = useState("");
   const [cardMarks, setCardMarks] = useState({});
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfig, setDeleteConfig] = useState({ type: null, id: null });
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Creation form state
   const [newDeckName, setNewDeckName] = useState("");
@@ -219,35 +226,48 @@ export default function FlashCards() {
     ]);
   };
 
-  const handleDeleteDeck = async (e, deckId) => {
+  const handleDeleteDeck = (e, deckId) => {
     e.stopPropagation();
+    setDeleteConfig({ type: "deck", id: deckId });
+    setIsDeleteModalOpen(true);
+  };
 
+  const handleConfirmDelete = async () => {
+    const { type, id } = deleteConfig;
+    if (!type || !id) return;
+
+    setDeleteLoading(true);
     try {
-      setRequestError("");
-      await deleteFlashCardDeck(deckId);
+      if (type === "deck") {
+        await deleteFlashCardDeck(id);
+        Notification.success("Deck deleted successfully");
+        const updatedDecks = decks.filter((deck) => deck._id !== id);
+        setDecks(updatedDecks);
 
-      const updatedDecks = decks.filter((deck) => deck._id !== deckId);
-      setDecks(updatedDecks);
+        if (selectedDeckId === id) {
+          setSelectedDeckId(updatedDecks[0]?._id || null);
+          setCurrentCardIndex(0);
+          setIsFlipped(false);
+        }
 
-      if (selectedDeckId === deckId) {
-        setSelectedDeckId(updatedDecks[0]?._id || null);
-        setCurrentCardIndex(0);
-        setIsFlipped(false);
-      }
-
-      if (isEditing && editingDeckId === deckId) {
-        resetEditorState();
+        if (isEditing && editingDeckId === id) {
+          resetEditorState();
+        }
       }
     } catch (err) {
-      setRequestError(err.response?.data?.message || "Unable to delete deck");
+      Notification.error(err.response?.data?.message || "Unable to delete deck");
+    } finally {
+      setDeleteLoading(false);
+      setIsDeleteModalOpen(false);
+      setDeleteConfig({ type: null, id: null });
     }
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-0 h-[calc(100vh-120px)] -mx-4 md:-mx-6 -mt-4 md:-mt-6 relative overflow-hidden">
+    <div className="flex flex-col lg:flex-row gap-0 h-[calc(100vh-170px)] bg-white border border-gray-100 shadow-sm rounded-[1.5rem] relative overflow-hidden">
       {/* Mobile Backdrop for Deck Drawer */}
       {showMobileDecks && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/40 z-[60] lg:hidden backdrop-blur-sm transition-opacity"
           onClick={() => setShowMobileDecks(false)}
         />
@@ -259,7 +279,7 @@ export default function FlashCards() {
         ${showMobileDecks ? "translate-x-0 shadow-2xl" : "-translate-x-full"}
       `}>
         {/* Mobile close button */}
-        <button 
+        <button
           onClick={() => setShowMobileDecks(false)}
           className="absolute top-4 right-4 lg:hidden text-secondary-400 p-2 hover:bg-gray-100 rounded-full"
         >
@@ -358,10 +378,10 @@ export default function FlashCards() {
       </div>
 
       {/* Right Content Area */}
-      <div className="flex-1 flex flex-col bg-slate-50/50 relative overflow-y-auto">
+      <div className="flex-1 flex flex-col bg-slate-50/50 relative overflow-y-auto z-10">
         {/* Mobile Header / Decks Trigger */}
-        <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-50">
-          <button 
+        <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-30">
+          <button
             onClick={() => setShowMobileDecks(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 text-white rounded-lg text-xs font-bold shadow-sm active:scale-95 transition-transform"
           >
@@ -383,311 +403,310 @@ export default function FlashCards() {
 
         <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10">
           {isCreating ? (
-          /* ===== CREATION MODE ===== */
-          <div className="w-full max-w-3xl">
-            {/* Deck name input */}
-            <div className="mb-5">
-              <input
-                type="text"
-                placeholder="Deck name (e.g. Data Structures)"
-                value={newDeckName}
-                onChange={(e) => setNewDeckName(e.target.value)}
-                className="w-full px-4 py-3 text-sm font-medium border border-gray-200 rounded-xl outline-none focus:border-primary-400 bg-white transition"
-              />
-            </div>
-
-            {/* Card rows */}
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-              {newCards.map((card, index) => (
-                <div
-                  key={index}
-                  className="flex flex-col sm:flex-row items-stretch gap-0 bg-white border border-primary-200 rounded-xl overflow-hidden shadow-sm"
-                >
-                  <div className="flex-1 flex flex-col sm:flex-row">
-                    {/* Question */}
-                    <div className="flex-1 px-4 py-4 border-b sm:border-b-0 sm:border-r border-primary-100">
-                      <label className="text-xs font-semibold text-secondary-500 mb-1 block">
-                        Question {index + 1}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Enter question..."
-                        value={card.question}
-                        onChange={(e) =>
-                          handleCardInputChange(
-                            index,
-                            "question",
-                            e.target.value
-                          )
-                        }
-                        className="w-full bg-transparent outline-none text-sm text-secondary-800 placeholder:text-secondary-300 border-b border-secondary-200 pb-1"
-                      />
-                    </div>
-
-                    {/* Answer */}
-                    <div className="flex-1 px-4 py-4">
-                      <label className="text-xs font-semibold text-secondary-500 mb-1 block">
-                        Answer {index + 1}
-                      </label>
-                      <textarea
-                        rows="2"
-                        placeholder="Enter answer..."
-                        value={card.answer}
-                        onChange={(e) =>
-                          handleCardInputChange(
-                            index,
-                            "answer",
-                            e.target.value
-                          )
-                        }
-                        className="w-full bg-transparent outline-none text-sm text-secondary-800 placeholder:text-secondary-300 border-b border-dotted border-secondary-200 focus:border-primary-400 transition-colors py-1 resize-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Add / Remove row button */}
-                  <button
-                    onClick={
-                      index === newCards.length - 1
-                        ? handleAddCardRow
-                        : () => handleRemoveCardRow(index)
-                    }
-                    className="px-3 self-stretch flex items-center text-secondary-400 hover:text-secondary-600 transition"
-                  >
-                    <Icon
-                      icon={
-                        index === newCards.length - 1
-                          ? "heroicons-outline:plus-circle"
-                          : "heroicons-outline:minus-circle"
-                      }
-                      className="w-5 h-5"
-                    />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {/* Create / Save button */}
-            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6">
-              <button
-                onClick={resetEditorState}
-                className="w-full sm:w-auto px-6 py-2.5 border border-secondary-300 text-secondary-600 text-sm font-medium rounded-xl hover:bg-secondary-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={
-                  !newDeckName.trim() ||
-                  !newCards.some((c) => c.question.trim() && c.answer.trim())
-                }
-                className="w-full sm:w-auto px-8 py-2.5 bg-secondary-800 text-white text-sm font-medium rounded-xl hover:bg-secondary-900 transition disabled:opacity-40 shadow-lg shadow-secondary-200"
-              >
-                {isEditing ? "Save Deck" : "Create Deck"}
-              </button>
-            </div>
-          </div>
-        ) : currentCard ? (
-          /* ===== VIEWER MODE ===== */
-          <div className="flex flex-col items-center gap-6 w-full max-w-2xl px-2">
-            <div className="w-full flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-secondary-400 uppercase tracking-widest">
-                  Card {currentCardIndex + 1} of {selectedDeck.cards.length}
-                </span>
-                {/* Card mark indicator dots */}
-                {selectedDeck.cards.length > 0 && (
-                  <div className="flex items-center gap-1">
-                    {selectedDeck.cards.map((_, i) => {
-                      const mark = currentDeckMarks[i];
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => { setCurrentCardIndex(i); setIsFlipped(false); }}
-                          className={`w-2.5 h-2.5 rounded-full transition-all border ${
-                            i === currentCardIndex ? "scale-125 ring-2 ring-offset-1" : ""
-                          } ${
-                            mark === "correct"
-                              ? "bg-green-500 border-green-600 ring-green-300"
-                              : mark === "incorrect"
-                              ? "bg-red-500 border-red-600 ring-red-300"
-                              : "bg-gray-200 border-gray-300 ring-gray-200"
-                          }`}
-                          title={`Card ${i + 1}${mark ? ` — ${mark}` : ""}`}
-                        />
-                      );
-                    })}
-                  </div>
-                )}
+            /* ===== CREATION MODE ===== */
+            <div className="w-full max-w-3xl">
+              {/* Deck name input */}
+              <div className="mb-5">
+                <input
+                  type="text"
+                  placeholder="Deck name (e.g. Data Structures)"
+                  value={newDeckName}
+                  onChange={(e) => setNewDeckName(e.target.value)}
+                  className="w-full px-4 py-3 text-sm font-medium border border-gray-200 rounded-xl outline-none focus:border-primary-400 bg-white transition"
+                />
               </div>
-              <div className="flex items-center gap-2">
-                {totalMarked > 0 && (
-                  <button
-                    onClick={handleResetMarks}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-bold text-secondary-500 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition active:scale-95"
-                    title="Reset all marks"
+
+              {/* Card rows */}
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                {newCards.map((card, index) => (
+                  <div
+                    key={index}
+                    className="flex flex-col sm:flex-row items-stretch gap-0 bg-white border border-primary-200 rounded-xl overflow-hidden shadow-sm"
                   >
-                    <Icon icon="heroicons-outline:arrow-path" className="w-3 h-3" />
-                    RESET
-                  </button>
-                )}
+                    <div className="flex-1 flex flex-col sm:flex-row">
+                      {/* Question */}
+                      <div className="flex-1 px-4 py-4 border-b sm:border-b-0 sm:border-r border-primary-100">
+                        <label className="text-xs font-semibold text-secondary-500 mb-1 block">
+                          Question {index + 1}
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Enter question..."
+                          value={card.question}
+                          onChange={(e) =>
+                            handleCardInputChange(
+                              index,
+                              "question",
+                              e.target.value
+                            )
+                          }
+                          className="w-full bg-transparent outline-none text-sm text-secondary-800 placeholder:text-secondary-300 border-b border-secondary-200 pb-1"
+                        />
+                      </div>
+
+                      {/* Answer */}
+                      <div className="flex-1 px-4 py-4">
+                        <label className="text-xs font-semibold text-secondary-500 mb-1 block">
+                          Answer {index + 1}
+                        </label>
+                        <textarea
+                          rows="2"
+                          placeholder="Enter answer..."
+                          value={card.answer}
+                          onChange={(e) =>
+                            handleCardInputChange(
+                              index,
+                              "answer",
+                              e.target.value
+                            )
+                          }
+                          className="w-full bg-transparent outline-none text-sm text-secondary-800 placeholder:text-secondary-300 border-b border-dotted border-secondary-200 focus:border-primary-400 transition-colors py-1 resize-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Add / Remove row button */}
+                    <button
+                      onClick={
+                        index === newCards.length - 1
+                          ? handleAddCardRow
+                          : () => handleRemoveCardRow(index)
+                      }
+                      className="px-3 self-stretch flex items-center text-secondary-400 hover:text-secondary-600 transition"
+                    >
+                      <Icon
+                        icon={
+                          index === newCards.length - 1
+                            ? "heroicons-outline:plus-circle"
+                            : "heroicons-outline:minus-circle"
+                        }
+                        className="w-5 h-5"
+                      />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Create / Save button */}
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 mt-6">
                 <button
-                  onClick={handleQuickAddCard}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition active:scale-95"
+                  onClick={resetEditorState}
+                  className="w-full sm:w-auto px-6 py-2.5 border border-secondary-300 text-secondary-600 text-sm font-medium rounded-xl hover:bg-secondary-50 transition"
                 >
-                  <Icon icon="heroicons-outline:plus" className="w-3 h-3" />
-                  ADD NEW CARD
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreate}
+                  disabled={
+                    !newDeckName.trim() ||
+                    !newCards.some((c) => c.question.trim() && c.answer.trim())
+                  }
+                  className="w-full sm:w-auto px-8 py-2.5 bg-secondary-800 text-white text-sm font-medium rounded-xl hover:bg-secondary-900 transition disabled:opacity-40 shadow-lg shadow-secondary-200"
+                >
+                  {isEditing ? "Save Deck" : "Create Deck"}
                 </button>
               </div>
             </div>
-
-            {/* Score Summary Bar */}
-            {totalMarked > 0 && (
-              <div className="w-full flex items-center gap-3 bg-white rounded-xl px-4 py-2.5 border border-gray-100 shadow-sm">
-                <div className="flex items-center gap-1.5 text-green-600">
-                  <Icon icon="heroicons-outline:check-circle" className="w-4 h-4" />
-                  <span className="text-xs font-bold">{correctCount}</span>
+          ) : currentCard ? (
+            /* ===== VIEWER MODE ===== */
+            <div className="flex flex-col items-center gap-6 w-full max-w-2xl px-2">
+              <div className="w-full flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-secondary-400 uppercase tracking-widest">
+                    Card {currentCardIndex + 1} of {selectedDeck.cards.length}
+                  </span>
+                  {/* Card mark indicator dots */}
+                  {selectedDeck.cards.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      {selectedDeck.cards.map((_, i) => {
+                        const mark = currentDeckMarks[i];
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => { setCurrentCardIndex(i); setIsFlipped(false); }}
+                            className={`w-2.5 h-2.5 rounded-full transition-all border ${i === currentCardIndex ? "scale-125 ring-2 ring-offset-1" : ""
+                              } ${mark === "correct"
+                                ? "bg-green-500 border-green-600 ring-green-300"
+                                : mark === "incorrect"
+                                  ? "bg-red-500 border-red-600 ring-red-300"
+                                  : "bg-gray-200 border-gray-300 ring-gray-200"
+                              }`}
+                            title={`Card ${i + 1}${mark ? ` — ${mark}` : ""}`}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full flex">
-                    <div
-                      className="bg-green-500 h-full transition-all duration-500"
-                      style={{ width: selectedDeck ? `${(correctCount / selectedDeck.cards.length) * 100}%` : "0%" }}
-                    />
-                    <div
-                      className="bg-red-400 h-full transition-all duration-500"
-                      style={{ width: selectedDeck ? `${(incorrectCount / selectedDeck.cards.length) * 100}%` : "0%" }}
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 text-red-500">
-                  <span className="text-xs font-bold">{incorrectCount}</span>
-                  <Icon icon="heroicons-outline:x-circle" className="w-4 h-4" />
+                <div className="flex items-center gap-2">
+                  {totalMarked > 0 && (
+                    <button
+                      onClick={handleResetMarks}
+                      className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-bold text-secondary-500 bg-secondary-50 rounded-lg hover:bg-secondary-100 transition active:scale-95"
+                      title="Reset all marks"
+                    >
+                      <Icon icon="heroicons-outline:arrow-path" className="w-3 h-3" />
+                      RESET
+                    </button>
+                  )}
+                  <button
+                    onClick={handleQuickAddCard}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition active:scale-95"
+                  >
+                    <Icon icon="heroicons-outline:plus" className="w-3 h-3" />
+                    ADD NEW CARD
+                  </button>
                 </div>
               </div>
-            )}
 
-            <div className="relative w-full flex items-center gap-2 sm:gap-6 justify-center">
-              {/* Prev arrow (Desktop Only) */}
-              <button
-                onClick={handlePrevCard}
-                disabled={currentCardIndex === 0}
-                className="hidden sm:block text-secondary-300 hover:text-secondary-600 transition disabled:opacity-20"
-              >
-                <Icon
-                  icon="heroicons-outline:chevron-left"
-                  className="w-10 h-10"
-                />
-              </button>
-
-              {/* Flashcard */}
-              <div
-                onClick={() => setIsFlipped(!isFlipped)}
-                className="w-full sm:w-[480px] aspect-[4/3] sm:aspect-auto sm:h-[280px] cursor-pointer [perspective:1000px] group overflow-visible"
-              >
-                <div
-                  className={`relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped ? "[transform:rotateY(180deg)]" : ""
-                    }`}
-                >
-                  {/* Visual card stack effect (background layers) */}
-                  <div className="absolute inset-0 bg-white/40 translate-x-2 translate-y-2 rounded-2xl -z-10 border border-black/5" />
-                  <div className="absolute inset-0 bg-white/60 translate-x-1 translate-y-1 rounded-2xl -z-10 border border-black/5" />
-
-                  {/* Front — Question */}
-                  <div
-                    className="absolute inset-0 [backface-visibility:hidden] rounded-2xl p-6 sm:p-10 flex flex-col justify-between shadow-2xl transition-shadow group-hover:shadow-primary-200 border border-white/20"
-                    style={{ 
-                      backgroundColor: getCardColor(currentCardIndex).front,
-                    }}
-                  >
-                    {/* Mark indicator badge */}
-                    {currentDeckMarks[currentCardIndex] && (
-                      <div className={`absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center ${
-                        currentDeckMarks[currentCardIndex] === "correct" ? "bg-green-500" : "bg-red-500"
-                      }`}>
-                        <Icon icon={currentDeckMarks[currentCardIndex] === "correct" ? "heroicons-outline:check" : "heroicons-outline:x-mark"} className="w-4 h-4 text-white" />
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-bold text-black/60 uppercase tracking-widest">Question</span>
-                      <p style={{ color: getCardColor(currentCardIndex).text }} className="text-base sm:text-xl font-medium leading-relaxed">
-                        {currentCard.question}
-                      </p>
-                    </div>
-                    <div className="flex justify-end">
-                      <span style={{ color: getCardColor(currentCardIndex).accent }} className="text-[11px] font-bold flex items-center gap-1.5 bg-black/10 px-3 py-1.5 rounded-full pointer-events-none">
-                        <Icon
-                          icon="heroicons-outline:arrow-path"
-                          className="w-4 h-4 animate-spin-slow"
-                        />
-                        FLIP TO REVEAL
-                      </span>
+              {/* Score Summary Bar */}
+              {totalMarked > 0 && (
+                <div className="w-full flex items-center gap-3 bg-white rounded-xl px-4 py-2.5 border border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-1.5 text-green-600">
+                    <Icon icon="heroicons-outline:check-circle" className="w-4 h-4" />
+                    <span className="text-xs font-bold">{correctCount}</span>
+                  </div>
+                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full flex">
+                      <div
+                        className="bg-green-500 h-full transition-all duration-500"
+                        style={{ width: selectedDeck ? `${(correctCount / selectedDeck.cards.length) * 100}%` : "0%" }}
+                      />
+                      <div
+                        className="bg-red-400 h-full transition-all duration-500"
+                        style={{ width: selectedDeck ? `${(incorrectCount / selectedDeck.cards.length) * 100}%` : "0%" }}
+                      />
                     </div>
                   </div>
+                  <div className="flex items-center gap-1.5 text-red-500">
+                    <span className="text-xs font-bold">{incorrectCount}</span>
+                    <Icon icon="heroicons-outline:x-circle" className="w-4 h-4" />
+                  </div>
+                </div>
+              )}
 
-                  {/* Back — Answer */}
+              <div className="relative w-full flex items-center gap-2 sm:gap-6 justify-center">
+                {/* Prev arrow (Desktop Only) */}
+                <button
+                  onClick={handlePrevCard}
+                  disabled={currentCardIndex === 0}
+                  className="hidden sm:block text-secondary-300 hover:text-secondary-600 transition disabled:opacity-20"
+                >
+                  <Icon
+                    icon="heroicons-outline:chevron-left"
+                    className="w-10 h-10"
+                  />
+                </button>
+
+                {/* Flashcard */}
+                <div
+                  onMouseEnter={() => setIsHovered(true)}
+                  onMouseLeave={() => setIsHovered(false)}
+                  onClick={() => setIsFlipped(!isFlipped)}
+                  className="w-full sm:w-[480px] aspect-[4/3] sm:aspect-auto sm:h-[280px] cursor-pointer [perspective:1000px] group overflow-visible"
+                >
                   <div
-                    className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] rounded-2xl p-6 sm:p-10 flex flex-col justify-between shadow-2xl transition-shadow border-[3px]"
-                    style={{ 
-                      backgroundColor: "#FFFFFF",
-                      borderColor: getCardColor(currentCardIndex).front,
-                    }}
+                    className={`relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped ? "[transform:rotateY(180deg)]" : ""
+                      }`}
                   >
-                    <div className="space-y-2">
-                      <span className="text-[10px] font-bold text-secondary-400 uppercase tracking-widest">Answer</span>
-                      <div className="overflow-y-auto max-h-[160px] pr-1 scrollbar-hide">
-                        <p className="text-base sm:text-lg font-semibold text-secondary-800 leading-relaxed">
-                          {currentCard.answer}
+                    {/* Visual card stack effect (background layers) */}
+                    <div className="absolute inset-0 bg-white/40 translate-x-2 translate-y-2 rounded-2xl -z-10 border border-black/5" />
+                    <div className="absolute inset-0 bg-white/60 translate-x-1 translate-y-1 rounded-2xl -z-10 border border-black/5" />
+
+                    {/* Front — Question */}
+                    <div
+                      className="absolute inset-0 [backface-visibility:hidden] rounded-2xl p-6 sm:p-10 flex flex-col justify-between shadow-2xl transition-all border border-white/20"
+                      style={{
+                        backgroundColor: getCardColor(currentCardIndex).front,
+                        boxShadow: (isHovered && !isFlipped) ? `0 20px 40px -15px ${getCardColor(currentCardIndex).back}40` : "none",
+                      }}
+                    >
+                      {/* Mark indicator badge */}
+                      {currentDeckMarks[currentCardIndex] && (
+                        <div className={`absolute top-3 right-3 w-7 h-7 rounded-full flex items-center justify-center ${currentDeckMarks[currentCardIndex] === "correct" ? "bg-green-500" : "bg-red-500"
+                          }`}>
+                          <Icon icon={currentDeckMarks[currentCardIndex] === "correct" ? "heroicons-outline:check" : "heroicons-outline:x-mark"} className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-bold text-black/60 uppercase tracking-widest">Question</span>
+                        <p style={{ color: getCardColor(currentCardIndex).text }} className="text-base sm:text-xl font-medium leading-relaxed">
+                          {currentCard.question}
                         </p>
                       </div>
+                      <div className="flex justify-end">
+                        <span style={{ color: getCardColor(currentCardIndex).accent }} className="text-[11px] font-bold flex items-center gap-1.5 bg-black/10 px-3 py-1.5 rounded-full pointer-events-none">
+                          <Icon
+                            icon="heroicons-outline:arrow-path"
+                            className="w-4 h-4 animate-spin-slow"
+                          />
+                          FLIP TO REVEAL
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center rounded-b-xl overflow-hidden -mx-6 sm:-mx-10 -mb-6 sm:-mb-10 mt-0">
-                       <button
-                         onClick={(e) => handleMarkCard(e, "correct")}
-                         className={`flex-1 flex items-center justify-center gap-2 py-3 font-bold text-sm transition-all ${
-                           currentDeckMarks[currentCardIndex] === "correct"
-                             ? "bg-green-500 text-white"
-                             : "bg-green-50 text-green-700 hover:bg-green-100"
-                         }`}
-                       >
-                         <Icon icon="heroicons-outline:check-circle" className="w-5 h-5" />
-                         Got it!
-                       </button>
-                       <button
-                         onClick={(e) => handleMarkCard(e, "incorrect")}
-                         className={`flex-1 flex items-center justify-center gap-2 py-3 font-bold text-sm transition-all ${
-                           currentDeckMarks[currentCardIndex] === "incorrect"
-                             ? "bg-red-500 text-white"
-                             : "bg-red-50 text-red-700 hover:bg-red-100"
-                         }`}
-                       >
-                         <Icon icon="heroicons-outline:x-circle" className="w-5 h-5" />
-                         Review Again
-                       </button>
+
+                    {/* Back — Answer */}
+                    <div
+                      className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] rounded-2xl p-6 sm:p-10 flex flex-col justify-between shadow-2xl transition-all border-[3px]"
+                      style={{
+                        backgroundColor: "#FFFFFF",
+                        borderColor: getCardColor(currentCardIndex).front,
+                        boxShadow: (isHovered && isFlipped) ? `0 20px 40px -15px ${getCardColor(currentCardIndex).front}` : "none",
+                      }}
+                    >
+                      <div className="space-y-2">
+                        <span className="text-[10px] font-bold text-secondary-400 uppercase tracking-widest">Answer</span>
+                        <div className="overflow-y-auto max-h-[160px] pr-1 scrollbar-hide">
+                          <p className="text-base sm:text-lg font-semibold text-secondary-800 leading-relaxed">
+                            {currentCard.answer}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center rounded-b-xl overflow-hidden -mx-6 sm:-mx-10 -mb-6 sm:-mb-10 mt-0">
+                        <button
+                          onClick={(e) => handleMarkCard(e, "correct")}
+                          className={`flex-1 flex items-center justify-center gap-2 py-3 font-bold text-sm transition-all ${currentDeckMarks[currentCardIndex] === "correct"
+                            ? "bg-green-500 text-white"
+                            : "bg-green-50 text-green-700 hover:bg-green-100"
+                            }`}
+                        >
+                          <Icon icon="heroicons-outline:check-circle" className="w-5 h-5" />
+                          Got it!
+                        </button>
+                        <button
+                          onClick={(e) => handleMarkCard(e, "incorrect")}
+                          className={`flex-1 flex items-center justify-center gap-2 py-3 font-bold text-sm transition-all ${currentDeckMarks[currentCardIndex] === "incorrect"
+                            ? "bg-red-500 text-white"
+                            : "bg-red-50 text-red-700 hover:bg-red-100"
+                            }`}
+                        >
+                          <Icon icon="heroicons-outline:x-circle" className="w-5 h-5" />
+                          Review Again
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Next arrow (Desktop Only) */}
+                <button
+                  onClick={handleNextCard}
+                  disabled={
+                    !selectedDeck ||
+                    currentCardIndex >= selectedDeck.cards.length - 1
+                  }
+                  className="hidden sm:block text-secondary-300 hover:text-secondary-600 transition disabled:opacity-20"
+                >
+                  <Icon
+                    icon="heroicons-outline:chevron-right"
+                    className="w-10 h-10"
+                  />
+                </button>
               </div>
 
-              {/* Next arrow (Desktop Only) */}
-              <button
-                onClick={handleNextCard}
-                disabled={
-                  !selectedDeck ||
-                  currentCardIndex >= selectedDeck.cards.length - 1
-                }
-                className="hidden sm:block text-secondary-300 hover:text-secondary-600 transition disabled:opacity-20"
-              >
-                <Icon
-                  icon="heroicons-outline:chevron-right"
-                  className="w-10 h-10"
-                />
-              </button>
-            </div>
-
-            {/* Mobile Navigation Bar */}
-            <div className="w-full flex sm:hidden items-center justify-between gap-4 mt-8 px-4 py-2 bg-white rounded-2xl shadow-lg border border-gray-100">
-               <button
+              {/* Mobile Navigation Bar */}
+              <div className="w-full flex sm:hidden items-center justify-between gap-4 mt-8 px-4 py-2 bg-white rounded-2xl shadow-lg border border-gray-100">
+                <button
                   onClick={handlePrevCard}
                   disabled={currentCardIndex === 0}
                   className="flex-1 flex items-center justify-center py-3 text-secondary-600 disabled:opacity-20 active:scale-95 transition-transform"
@@ -709,22 +728,30 @@ export default function FlashCards() {
                 >
                   <Icon icon="heroicons-outline:arrow-right" className="w-6 h-6" />
                 </button>
+              </div>
             </div>
-          </div>
-        ) : (
-          /* ===== EMPTY STATE ===== */
-          <div className="text-center text-secondary-400">
-            <Icon
-              icon="heroicons-outline:rectangle-stack"
-              className="w-12 h-12 mx-auto mb-3 opacity-40"
-            />
-            <p className="text-sm">
-              Select a deck or create a new one to get started.
-            </p>
-          </div>
-        )}
+          ) : (
+            /* ===== EMPTY STATE ===== */
+            <div className="text-center text-secondary-400">
+              <Icon
+                icon="heroicons-outline:rectangle-stack"
+                className="w-12 h-12 mx-auto mb-3 opacity-40"
+              />
+              <p className="text-sm">
+                Select a deck or create a new one to get started.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        isLoading={deleteLoading}
+        title="Delete Deck"
+        message="Are you sure you want to delete this whole deck? All flashcards in it will be permanently removed."
+      />
     </div>
-  </div>
   );
 }

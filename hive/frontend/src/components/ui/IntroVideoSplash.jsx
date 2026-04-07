@@ -10,7 +10,7 @@ export default function IntroVideoSplash() {
   const handleAnimationFinish = useCallback(() => {
     setFadingOut(true);
     sessionStorage.setItem("hasSeenIntro", "true");
-    
+
     if (sessionStorage.getItem("freshLogin")) {
       Notification.success("Login successful!");
       sessionStorage.removeItem("freshLogin");
@@ -24,13 +24,13 @@ export default function IntroVideoSplash() {
   useEffect(() => {
     if (user && !sessionStorage.getItem("hasSeenIntro")) {
       setShowSplash(true);
-      
+
       // GIFs don't natively trigger an onEnded event.
       // Set to 3.5 seconds fallback timer. You can adjust this matching the exact GIF duration!
       const timer = setTimeout(() => {
         handleAnimationFinish();
       }, 3500);
-      
+
       return () => clearTimeout(timer);
     }
   }, [user, handleAnimationFinish]);
@@ -39,16 +39,15 @@ export default function IntroVideoSplash() {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-sm transition-opacity duration-700 ease-in-out ${
-        fadingOut ? "opacity-0 pointer-events-none" : "opacity-100"
-      }`}
+      className={`fixed inset-0 z-[100] flex items-center justify-center bg-white/60 backdrop-blur-sm transition-opacity duration-700 ease-in-out ${fadingOut ? "opacity-0 pointer-events-none" : "opacity-100"
+        }`}
     >
       <div className="relative w-full h-full flex flex-col items-center justify-center pointer-events-auto">
         <img
           src="/splash.gif"
           alt="Loading animation"
           className="w-full max-w-5xl h-[25vh] object-contain opacity-60 mix-blend-multiply"
-          onError={handleAnimationFinish} 
+          onError={handleAnimationFinish}
         />
       </div>
     </div>
