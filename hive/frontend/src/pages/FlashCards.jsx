@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import Icon from "@/components/ui/Icon";
-import DeleteConfirmationModal from "@/components/ui/DeleteConfirmationModal";
 import { useAuth } from "@/context/AuthContext";
 import {
   getFlashCardDecks,
@@ -39,9 +38,6 @@ export default function FlashCards() {
   const [isLoadingDecks, setIsLoadingDecks] = useState(true);
   const [requestError, setRequestError] = useState("");
   const [cardMarks, setCardMarks] = useState({});
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deleteConfig, setDeleteConfig] = useState({ type: null, id: null });
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Creation form state
   const [newDeckName, setNewDeckName] = useState("");
@@ -226,40 +222,27 @@ export default function FlashCards() {
     ]);
   };
 
-  const handleDeleteDeck = (e, deckId) => {
+  const handleDeleteDeck = async (e, deckId) => {
     e.stopPropagation();
-    setDeleteConfig({ type: "deck", id: deckId });
-    setIsDeleteModalOpen(true);
-  };
 
-  const handleConfirmDelete = async () => {
-    const { type, id } = deleteConfig;
-    if (!type || !id) return;
-
-    setDeleteLoading(true);
     try {
-      if (type === "deck") {
-        await deleteFlashCardDeck(id);
-        Notification.success("Deck deleted successfully");
-        const updatedDecks = decks.filter((deck) => deck._id !== id);
-        setDecks(updatedDecks);
+      setRequestError("");
+      await deleteFlashCardDeck(deckId);
 
-        if (selectedDeckId === id) {
-          setSelectedDeckId(updatedDecks[0]?._id || null);
-          setCurrentCardIndex(0);
-          setIsFlipped(false);
-        }
+      const updatedDecks = decks.filter((deck) => deck._id !== deckId);
+      setDecks(updatedDecks);
 
-        if (isEditing && editingDeckId === id) {
-          resetEditorState();
-        }
+      if (selectedDeckId === deckId) {
+        setSelectedDeckId(updatedDecks[0]?._id || null);
+        setCurrentCardIndex(0);
+        setIsFlipped(false);
+      }
+
+      if (isEditing && editingDeckId === deckId) {
+        resetEditorState();
       }
     } catch (err) {
-      Notification.error(err.response?.data?.message || "Unable to delete deck");
-    } finally {
-      setDeleteLoading(false);
-      setIsDeleteModalOpen(false);
-      setDeleteConfig({ type: null, id: null });
+      setRequestError(err.response?.data?.message || "Unable to delete deck");
     }
   };
 
@@ -744,14 +727,6 @@ export default function FlashCards() {
           )}
         </div>
       </div>
-      <DeleteConfirmationModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={handleConfirmDelete}
-        isLoading={deleteLoading}
-        title="Delete Deck"
-        message="Are you sure you want to delete this whole deck? All flashcards in it will be permanently removed."
-      />
     </div>
   );
 }
