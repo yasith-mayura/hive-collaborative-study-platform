@@ -25,7 +25,7 @@ const AdminSearch = ({ searchQuery, setSearchQuery, handleSearch }) => {
           </span>
         </div>
         <button
-          className="inline-flex items-center justify-center gap-2 rounded-md py-2 px-4 bg-gray-800 text-white shadow-sm hover:bg-gray-900"
+          className="inline-flex items-center justify-center gap-2 rounded-md py-2 px-4 bg-gray-800 text-white shadow-sm hover:bg-gray-900 whitespace-nowrap shrink-0"
           onClick={handleSearch}
         >
           Search

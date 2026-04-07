@@ -24,7 +24,7 @@ const ConnectionBadge = ({ state }) => {
   const config = map[state] || map.connecting;
 
   return (
-    <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${config.className}`}>
+    <span className={`inline-flex shrink-0 items-center whitespace-nowrap justify-center rounded-full px-3 py-1 text-xs font-semibold ${config.className}`}>
       {config.label}
     </span>
   );
@@ -211,11 +211,10 @@ export default function Chat() {
                 return (
                   <div key={msg._id || `${msg.senderId}-${msg.timestamp}-${msg.content}`} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${
-                        isOwn
+                      className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${isOwn
                           ? "rounded-br-none bg-[#FFF4CC] text-[#4D3D00]"
                           : "rounded-bl-none border border-slate-200 bg-slate-50 text-slate-900"
-                      }`}
+                        }`}
                     >
                       <div className={`mb-1 text-xs font-semibold ${isOwn ? "text-[#4D3D00]/90" : "text-slate-600"}`}>
                         {msg.senderName} {msg.senderStudentNumber ? `(${msg.senderStudentNumber})` : ""}
