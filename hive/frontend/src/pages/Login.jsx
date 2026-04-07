@@ -65,16 +65,16 @@ function Login() {
   };
 
   return (
-    <div className="flex flex-col flex-1 bg-gray-100  min-h-screen">
+    <div className="flex flex-col flex-1 bg-[#FDFCF9] min-h-screen font-inter">
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto p-6">
-        <div className="bg-white  shadow-lg rounded-lg p-8">
-          <div className="mb-6 mt-4 text-center">
-            <h1 className="text-2xl font-semibold text-gray-800 ">Welcome !</h1>
-            <p className="text-sm text-gray-500 ">
-              Enter your credentials to a login panel.
-            </p>
-          </div>
 
+        <div className="flex justify-center mb-8">
+          <div className="w-32 h-32 rounded-3xl overflow-hidden bg-white/50 backdrop-blur-sm p-2">
+            <img src="/splash.gif" alt="Hive" className="w-full h-full object-contain" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#F1EFE9] p-6">
           <form
             onSubmit={handleSubmit(onSubmit)}
             onKeyDown={(e) => {
@@ -83,48 +83,52 @@ function Login() {
                 handleSubmit(onSubmit)();
               }
             }}
-            className="space-y-6"
+            className="space-y-4"
           >
             <div>
               <Textinput
                 name="email"
-                label="Email"
                 type="email"
-                placeholder="Enter the Email Name"
+                placeholder="Email address"
                 register={register}
                 error={errors.email}
+                className="bg-[#F7F6F2] border-none rounded-2xl h-14 px-6 text-sm placeholder:text-[#BBB4A5] focus:bg-white transition-all shadow-none"
               />
             </div>
 
-            {/* Password Field */}
             <div>
               <Textinput
                 name="password"
-                label="password"
                 type="password"
                 register={register}
                 error={errors.password}
                 hasicon
-                placeholder="Enter the password"
+                placeholder="Password"
+                className="bg-[#F7F6F2] border-none rounded-2xl h-14 px-6 text-sm placeholder:text-[#BBB4A5] focus:bg-white transition-all shadow-none"
               />
             </div>
 
-            <Button
-              type="submit"
-              text="Login"
-              className="btn btn-primary block w-full text-center"
-              isLoading={loading}
-            />
+            <div className="pt-2">
+              <Button
+                type="submit"
+                text="Login"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold h-14 rounded-2xl transition-all shadow-lg shadow-slate-900/20 capitalize"
+                isLoading={loading}
+              />
+            </div>
           </form>
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-500">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-blue-500 hover:underline">
+
+          <div className="mt-8 text-center space-y-3">
+            <p className="text-sm font-medium text-[#8D7F67]">
+              Didn't have an account?{" "}
+              <Link to="/signup" className="text-slate-900 font-bold hover:underline">
                 Sign Up
               </Link>
             </p>
+
           </div>
         </div>
+
       </div>
     </div>
   );
