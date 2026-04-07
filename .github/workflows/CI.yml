@@ -216,7 +216,7 @@ jobs:
   create-pr:
     name: 🚀 Promote to battlefield
     runs-on: ubuntu-latest
-    needs: [initialization, health-check, logs-and-artifacts]
+    needs: [initialization]
     if: success()
 
     steps:
