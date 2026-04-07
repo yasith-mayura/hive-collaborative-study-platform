@@ -1,0 +1,283 @@
+# .github/workflows/ci.yml
+
+name: CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to run workflow on'
+        required: true
+        default: 'staging-grounds'
+
+jobs:
+  # ─────────────────────────────────────────────
+  # JOB 1 — Initialization
+  # ─────────────────────────────────────────────
+  initialization:
+    name: 🏗️ Build & Start Services
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create .env file
+        working-directory: hive
+        run: |
+          cat <<EOF > .env
+          MONGO_URI=${{ secrets.MONGO_URI }}
+          FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+          RAG_SERVICE_URL=${{ vars.RAG_SERVICE_URL }}
+          VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET=${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID=${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}
+          VITE_API_GATEWAY_URL=${{ vars.VITE_API_GATEWAY_URL }}
+          VITE_BASE_URL=${{ vars.VITE_BASE_URL }}
+          EOF
+
+      - name: Build images
+        working-directory: hive
+        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml build
+
+      - name: Start services
+        working-directory: hive
+        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml up -d
+
+      - name: Save compose state
+        working-directory: hive
+        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml ps > compose-ps.txt
+
+      - name: Upload compose state artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-state
+          path: hive/compose-ps.txt
+          retention-days: 1
+
+  # ─────────────────────────────────────────────
+  # JOB 2 — Health Check
+  # ─────────────────────────────────────────────
+  health-check:
+    name: 🩺 Health Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: initialization
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Restore .env file
+        working-directory: hive
+        run: |
+          cat <<EOF > .env
+          MONGO_URI=${{ secrets.MONGO_URI }}
+          FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL=${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY=${{ secrets.FIREBASE_PRIVATE_KEY }}
+          RAG_SERVICE_URL=${{ vars.RAG_SERVICE_URL }}
+          VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID=${{ vars.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET=${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_MEASUREMENT_ID=${{ vars.VITE_FIREBASE_MEASUREMENT_ID }}
+          VITE_API_GATEWAY_URL=${{ vars.VITE_API_GATEWAY_URL }}
+          VITE_BASE_URL=${{ vars.VITE_BASE_URL }}
+          EOF
+
+      - name: Start services (restore runner state)
+        working-directory: hive
+        run: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml up -d
+
+      - name: Wait for all services to be healthy
+        working-directory: hive
+        run: |
+          COMPOSE="docker compose -f docker-compose.yml -f docker-compose.override.ci.yml"
+
+          echo "Waiting for all services to be healthy..."
+          for i in {1..36}; do
+            HEALTHY=$($COMPOSE ps | grep -c '(healthy)' || true)
+            TOTAL=$($COMPOSE ps --services | wc -l | tr -d ' ')
+
+            echo "[$i/36] Healthy: $HEALTHY / $TOTAL"
+
+            if [ "$HEALTHY" -eq "$TOTAL" ] && [ "$TOTAL" -gt 0 ]; then
+              echo "All $TOTAL services are healthy!"
+              exit 0
+            fi
+
+            EXITED=$($COMPOSE ps | grep -cE 'Exit|exited|unhealthy' || true)
+            if [ "$EXITED" -gt 0 ]; then
+              echo "A service has crashed or is unhealthy:"
+              $COMPOSE ps
+              exit 1
+            fi
+
+            sleep 5
+          done
+
+          echo "Timed out waiting for services to become healthy"
+          $COMPOSE ps
+          exit 1
+      - name: Debug pgvector logs
+        if: failure()
+        run: docker logs hive-pgvector
+
+      - name: Save health check result
+        if: always()
+        working-directory: hive
+        run: |
+          COMPOSE="docker compose -f docker-compose.yml -f docker-compose.override.ci.yml"
+          $COMPOSE ps > health-report.txt
+          echo "--- Service Logs Snapshot ---" >> health-report.txt
+          $COMPOSE logs --no-color --tail=30 >> health-report.txt
+
+      - name: Upload health report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-report
+          path: hive/health-report.txt
+          retention-days: 7
+
+      - name: Tear down
+        if: always()
+        working-directory: hive
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.override.ci.yml \
+            down --volumes --remove-orphans
+
+  # ─────────────────────────────────────────────
+  # JOB 3 — Logs & Artifacts Summary
+  # ─────────────────────────────────────────────
+  logs-and-artifacts:
+    name: 📋 Logs & Artifacts
+    runs-on: ubuntu-latest
+    needs: health-check
+    if: always()
+
+    steps:
+      - name: Download health report
+        uses: actions/download-artifact@v4
+        with:
+          name: health-report
+          path: reports
+
+      - name: Download compose state
+        uses: actions/download-artifact@v4
+        with:
+          name: compose-state
+          path: reports
+
+      - name: Print health report to job summary
+        run: |
+          echo "## 🩺 CI Health Report" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat reports/health-report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Print compose state to job summary
+        run: |
+          echo "## 🐳 Docker Compose State" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat reports/compose-ps.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload combined report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-full-report
+          path: reports/
+          retention-days: 14
+
+  # ─────────────────────────────────────────────
+  # JOB 4 — Create PR to battlefield
+  # ─────────────────────────────────────────────
+
+  create-pr:
+    name: 🚀 Promote to battlefield
+    runs-on: ubuntu-latest
+    needs: [initialization, health-check, logs-and-artifacts]
+    if: success()
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Promote to battlefield
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          SOURCE="${{ github.event.inputs.branch }}"
+          TARGET="battlefield"
+
+          BODY="## ✅ CI Passed
+
+          | Field        | Value |
+          |---|---|
+          | Branch       | \`${SOURCE}\` |
+          | Triggered by | @${{ github.actor }} |
+          | Run          | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |
+          | Commit       | \`${{ github.sha }}\` |
+
+          > Automatically promoted after CI passed."
+
+          # Does battlefield exist at all?
+          if ! git ls-remote --exit-code --heads origin "$TARGET" > /dev/null 2>&1; then
+            echo "ℹ️ '$TARGET' does not exist. Creating it from '$SOURCE' — no PR needed."
+            git checkout -b "$TARGET"
+            git push origin "$TARGET"
+            echo "✅ Branch '$TARGET' created from '$SOURCE'."
+            exit 0
+          fi
+
+          echo "ℹ️ '$TARGET' exists. Checking for an open PR..."
+
+          EXISTING_PR=$(gh pr list \
+            --head "$SOURCE" \
+            --base "$TARGET" \
+            --state open \
+            --json number \
+            --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "ℹ️ PR #$EXISTING_PR already exists. Updating..."
+            gh pr edit "$EXISTING_PR" \
+              --title "🚀 [${SOURCE}] → ${TARGET} (CI passed)" \
+              --body "$BODY"
+            echo "✅ PR #$EXISTING_PR updated."
+          else
+            echo "ℹ️ No open PR found. Creating one..."
+            gh pr create \
+              --head "$SOURCE" \
+              --base "$TARGET" \
+              --title "🚀 [${SOURCE}] → ${TARGET} (CI passed)" \
+              --body "$BODY"
+            echo "✅ PR created."
+          fi

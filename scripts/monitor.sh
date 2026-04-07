@@ -54,28 +54,21 @@ while true; do
   echo -e "$(date '+%Y-%m-%d %H:%M:%S')                                          "
   echo ""
   
-  # Database
-  echo -e "${YELLOW}DATABASE:${NC}"
-  mongo_health=$(get_docker_health "mongo")
-  pgvector_health=$(get_docker_health "pgvector")
-  if [ "$mongo_health" = "healthy" ]; then
-    echo -e "  ${GREEN}●${NC} MongoDB          ${GREEN}healthy${NC}      Port: 27017"
-  else
-    echo -e "  ${RED}●${NC} MongoDB          ${RED}$mongo_health${NC}      Port: 27017"
-  fi
-
-  if [ "$pgvector_health" = "healthy" ]; then
-    echo -e "  ${GREEN}●${NC} PGVector         ${GREEN}healthy${NC}      Port: 5432"
-  else
-    echo -e "  ${RED}●${NC} PGVector         ${RED}$pgvector_health${NC}      Port: 5432"
-  fi
-  echo ""
+  # # Database
+  # echo -e "${YELLOW}DATABASE:${NC}"
+  # mongo_health=$(get_docker_health "mongo")
+  # if [ "$mongo_health" = "healthy" ]; then
+  #   echo -e "  ${GREEN}●${NC} MongoDB          ${GREEN}healthy${NC}      Port: 27017"
+  # else
+  #   echo -e "  ${RED}●${NC} MongoDB          ${RED}$mongo_health${NC}      Port: 27017"
+  # fi
+  # echo ""
   
   # Microservices
   echo -e "${YELLOW}MICROSERVICES:${NC}"
   
   services=(
-    "api-gateway:4000"
+    # "api-gateway:4000"
     "auth-service:3000"
     "user-service:3001"
     "resource-service:3002"
@@ -109,7 +102,7 @@ while true; do
   
   # Frontend
   echo -e "${YELLOW}FRONTEND:${NC}"
-  frontend_code=$(check_service "http://localhost:5173")
+  frontend_code=$(check_service "http://localhost:80")
   frontend_health=$(get_docker_health "frontend")
   
   if [ "$frontend_code" = "200" ] || [ "$frontend_health" = "healthy" ]; then
@@ -152,7 +145,7 @@ while true; do
   echo ""
   if [ $healthy_count -eq $total_services ]; then
     echo -e "   ${GREEN}✓ ALL SERVICES HEALTHY${NC} ($healthy_count/$total_services)    ${GREEN}✓ SYSTEM READY${NC}"
-    echo -e "   ${BLUE}→ Access application: ${GREEN}http://localhost:5173${NC}"
+    echo -e "   ${BLUE}→ Access application: ${GREEN}http://localhost:80${NC}"
   else
     echo -e "   ${YELLOW}⚠ SERVICES STARTING${NC} ($healthy_count/$total_services healthy)    ${YELLOW}⟳ Please wait...${NC}"
   fi

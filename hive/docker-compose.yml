@@ -1,48 +1,52 @@
 services:
-  mongo:
-    image: mongo:6
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: ["CMD-SHELL", "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 25s
+  # mongo:
+  #   image: mongo:6
+  #   restart: unless-stopped
+  #   ports:
+  #     - "27017:27017"
+  #   volumes:
+  #     - mongo-data:/data/db
+  #   healthcheck:
+  #     test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 40s
 
-  pgvector:
-    image: pgvector/pgvector:pg16
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${PGVECTOR_USER:-postgres}
-      POSTGRES_PASSWORD: ${PGVECTOR_PASSWORD:-postgres}
-      POSTGRES_DB: ${PGVECTOR_DATABASE:-hive_vectors}
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgvector-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PGVECTOR_USER:-postgres} -d ${PGVECTOR_DATABASE:-hive_vectors}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
+  # api-gateway:
+  #   build: ./services/api-gateway
+  #   env_file: .env
+  #   environment:
+  #     - PORT=4000
+  #   ports:
+  #     - "4000:4000"
+  #   depends_on:
+  #     mongo:
+  #       condition: service_healthy
+  #   restart: on-failure
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 30s
 
   auth-service:
     build: ./services/auth-service
-    env_file: .env
+    # env_file: .env
     environment:
       PORT: 3000
-      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
-    ports:
-      - "3000:3000"
-    depends_on:
-      mongo:
-        condition: service_healthy
-    restart: unless-stopped
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+
+
+    # ports:
+    #   - "3000:3000"
+    networks:
+      local:
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 10s
@@ -52,17 +56,19 @@ services:
 
   user-service:
     build: ./services/user-service
-    env_file: .env
     environment:
       PORT: 3001
-      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
-      NOTIFICATION_SERVICE_URL: http://notification-service:3007
-    ports:
-      - "3001:3001"
-    depends_on:
-      mongo:
-        condition: service_healthy
-    restart: unless-stopped
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL}
+    # ports:
+    #   - "3001:3001"
+    networks:
+      local:
+
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 10s
@@ -72,23 +78,31 @@ services:
 
   resource-service:
     build: ./services/resource-service
-    env_file: .env
     environment:
       PORT: 3002
-      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
-      RAG_SERVICE_URL: http://rag-service:8000
-      USER_SERVICE_URL: http://user-service:3001
-      NOTIFICATION_SERVICE_URL: http://notification-service:3007
-    ports:
-      - "3002:3002"
-    depends_on:
-      mongo:
-        condition: service_healthy
-      rag-service:
-        condition: service_healthy
-      user-service:
-        condition: service_healthy
-    restart: unless-stopped
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+      USER_SERVICE_URL: ${USER_SERVICE_URL}
+      AWS_ACCESS_KEY_ID: ${S3_AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${S3_AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${S3_AWS_REGION}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL}
+      
+      # - MONGO_URI=mongodbenvironment:://mongo:27017/hive
+      # AWS credentials are read from .env via env_file above
+      # S3_BUCKET_NAME, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+    # ports:
+    #   - "3002:3002"
+    networks:
+      local:
+    # depends_on:
+    #   rag-service:
+    #     condition: service_healthy
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
       interval: 10s
@@ -98,17 +112,19 @@ services:
 
   chat-service:
     build: ./services/chat-service
-    env_file: .env
     environment:
       PORT: 3003
-      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
-      NOTIFICATION_SERVICE_URL: http://notification-service:3007
-    ports:
-      - "3003:3003"
-    depends_on:
-      mongo:
-        condition: service_healthy
-    restart: unless-stopped
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL}
+    # ports:
+    #   - "3003:3003"
+    networks:
+      local:
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
       interval: 10s
@@ -118,16 +134,18 @@ services:
 
   note-service:
     build: ./services/note-service
-    env_file: .env
     environment:
       PORT: 3004
-      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
-    ports:
-      - "3004:3004"
-    depends_on:
-      mongo:
-        condition: service_healthy
-    restart: unless-stopped
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+    # ports:
+    #   - "3004:3004"
+    networks:
+      local:
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
       interval: 10s
@@ -137,16 +155,18 @@ services:
 
   progress-service:
     build: ./services/progress-service
-    env_file: .env
     environment:
       PORT: 3005
-      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
-    ports:
-      - "3005:3005"
-    depends_on:
-      mongo:
-        condition: service_healthy
-    restart: unless-stopped
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+    # ports:
+    #   - "3005:3005"
+    networks:
+      local:
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
       interval: 10s
@@ -156,17 +176,19 @@ services:
 
   session-service:
     build: ./services/session-service
-    env_file: .env
     environment:
       PORT: 3006
-      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
-      NOTIFICATION_SERVICE_URL: http://notification-service:3007
-    ports:
-      - "3006:3006"
-    depends_on:
-      mongo:
-        condition: service_healthy
-    restart: unless-stopped
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+      NOTIFICATION_SERVICE_URL: ${NOTIFICATION_SERVICE_URL}
+    # ports:
+    #   - "3006:3006"
+    networks:
+      local:
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
       interval: 10s
@@ -176,21 +198,42 @@ services:
 
   rag-service:
     build: ./services/rag-service
-    env_file: .env
     environment:
       PORT: 8000
-      PGVECTOR_HOST: pgvector
-      PGVECTOR_PORT: 5432
-      PGVECTOR_DATABASE: ${PGVECTOR_DATABASE:-hive_vectors}
-      PGVECTOR_USER: ${PGVECTOR_USER:-postgres}
-      PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD:-postgres}
-      RESOURCE_SERVICE_URL: http://resource-service:3002
-    ports:
-      - "8000:8000"
+      MONGO_URI: ${MONGO_URI}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      RAG_SERVICE_URL: ${RAG_SERVICE_URL}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      PGVECTOR_HOST: ${PGVECTOR_HOST}
+      PGVECTOR_PORT: ${PGVECTOR_PORT}
+      PGVECTOR_DATABASE: ${PGVECTOR_DATABASE}
+      PGVECTOR_USER: ${PGVECTOR_USER}
+      PGVECTOR_PASSWORD: ${PGVECTOR_PASSWORD}
+      AWS_ACCESS_KEY_ID: ${S3_AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${S3_AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${S3_AWS_REGION}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL}
+      EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS}
+      GEMINI_MODEL: ${GEMINI_MODEL}
+      TOP_K_CHUNKS: ${TOP_K_CHUNKS}
+      MIN_SIMILARITY_SCORE: ${MIN_SIMILARITY_SCORE}
+      CHUNK_SIZE: ${CHUNK_SIZE}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP}
+      RESOURCE_SERVICE_URL: ${RESOURCE_SERVICE_URL}
+      OUT_OF_SYLLABUS_THRESHOLD: ${OUT_OF_SYLLABUS_THRESHOLD}
+
+
+    # ports:
+    #   - "8000:8000"
+    networks:
+      local:
     depends_on:
       pgvector:
         condition: service_healthy
-    restart: unless-stopped
+    restart: on-failure
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 10s
@@ -198,20 +241,21 @@ services:
       retries: 5
       start_period: 30s
 
+
   notification-service:
     build: ./services/notification-service
     env_file: .env
     environment:
       PORT: 3007
-      MONGO_URI: ${MONGO_URI:-mongodb://mongo:27017/hive}
+      MONGO_URI: ${MONGO_URI}
       USER_SERVICE_URL: http://user-service:3001
       SESSION_SERVICE_URL: http://session-service:3006
       NOTIFICATION_SERVICE_URL: http://notification-service:3007
     ports:
       - "3007:3007"
+    networks:
+      local:
     depends_on:
-      mongo:
-        condition: service_healthy
       user-service:
         condition: service_healthy
       session-service:
@@ -224,76 +268,122 @@ services:
       retries: 5
       start_period: 25s
 
-  api-gateway:
-    build: ./services/api-gateway
-    env_file: .env
-    environment:
-      PORT: 4000
-      AUTH_SERVICE_URL: http://auth-service:3000
-      USER_SERVICE_URL: http://user-service:3001
-      RESOURCE_SERVICE_URL: http://resource-service:3002
-      CHAT_SERVICE_URL: http://chat-service:3003
-      NOTE_SERVICE_URL: http://note-service:3004
-      PROGRESS_SERVICE_URL: http://progress-service:3005
-      SESSION_SERVICE_URL: http://session-service:3006
-      NOTIFICATION_SERVICE_URL: http://notification-service:3007
-      RAG_SERVICE_URL: http://rag-service:8000
+
+  certbot:
+    image: certbot/dns-google:latest
+    volumes:
+      - certbot-webroot:/var/www/certbot
+      - certbot-certs:/etc/letsencrypt
+    # Renew automatically — run every 12h, renews when <30 days left
+    entrypoint: >
+      sh -c "trap exit TERM;
+             while :; do
+               certbot renew --webroot --webroot-path=/var/www/certbot --quiet;
+               sleep 12h & wait $${!};
+             done"
+    networks:
+      local:
+
+  # frontend:
+  #   build: ./frontend
+  #   environment:
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+        VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
+        VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID}
+        VITE_API_GATEWAY_URL: ${VITE_API_GATEWAY_URL}
+        VITE_AUTH_SERVICE_URL: ${VITE_BASE_URL}
+        VITE_USER_SERVICE_URL: ${VITE_BASE_URL}
+        VITE_RESOURCE_SERVICE_URL: ${VITE_BASE_URL}
+        VITE_CHAT_SERVICE_URL: ${VITE_BASE_URL}
+        VITE_NOTE_SERVICE_URL: ${VITE_BASE_URL}
+        VITE_PROGRESS_SERVICE_URL: ${VITE_BASE_URL}
+        VITE_SESSION_SERVICE_URL: ${VITE_BASE_URL}
+        VITE_RAG_SERVICE_URL: ${VITE_BASE_URL}
+        VITE_NOTIFICATION_SERVICE_URL: ${VITE_BASE_URL}
+        NGINX_APP0_DOMAIN: ${NGINX_APP0_DOMAIN}
+    volumes:
+      - certbot-webroot:/var/www/certbot:ro
+      - certbot-certs:/etc/letsencrypt:ro
     ports:
-      - "4000:4000"
+      - "80:80"
+      - "443:443"
+    networks:
+      local:
     depends_on:
-      auth-service:
-        condition: service_healthy
       user-service:
+        condition: service_healthy
+      auth-service:
         condition: service_healthy
       resource-service:
         condition: service_healthy
+      session-service:
+        condition: service_healthy
       chat-service:
         condition: service_healthy
-      note-service:
+      pgvector:
         condition: service_healthy
       progress-service:
         condition: service_healthy
-      session-service:
-        condition: service_healthy
-      notification-service:
+      note-service:
         condition: service_healthy
       rag-service:
         condition: service_healthy
-    restart: unless-stopped
+      notification-service:
+        condition: service_healthy
+    restart: on-failure
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
 
-  frontend:
-    build: ./frontend
-    env_file: .env
+
+  pgvector:
+    image: pgvector/pgvector:pg16
+    # build: ./services/pgvector
+    container_name: hive-pgvector
     environment:
-      PORT: 5173
-      VITE_AUTH_SERVICE_URL: http://localhost:3000
-      VITE_USER_SERVICE_URL: http://localhost:3001
-      VITE_RESOURCE_SERVICE_URL: http://localhost:3002
-      VITE_CHAT_SERVICE_URL: http://localhost:3003
-      VITE_NOTE_SERVICE_URL: http://localhost:3004
-      VITE_PROGRESS_SERVICE_URL: http://localhost:3005
-      VITE_SESSION_SERVICE_URL: http://localhost:3006
-      VITE_NOTIFICATION_SERVICE_URL: http://localhost:3007
-      VITE_RAG_SERVICE_URL: http://localhost:8000
+      POSTGRES_USER: ${PGVECTOR_USER}
+      POSTGRES_PASSWORD: ${PGVECTOR_PASSWORD}
+      POSTGRES_DB: ${PGVECTOR_DATABASE}
     ports:
-      - "5173:5173"
-    depends_on:
-      api-gateway:
-        condition: service_healthy
-    restart: unless-stopped
+      - "5432:5432"
+    networks:
+      local:
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+      - ./init/pgvector-init.sql:/docker-entrypoint-initdb.d/01-init.sql
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      test: ["CMD-SHELL", "pg_isready -U ${PGVECTOR_USER} -d ${PGVECTOR_DATABASE}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+    
 
 volumes:
-  mongo-data:
-  pgvector-data:
+  pgvector_data:
+  certbot-webroot:
+  certbot-certs:
+
+
+
+networks:
+  # Connects all commons serices (Certbot, Nginx, pgAdmin, Chatbot and Django).
+  local:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-local
+    ipam:
+      config:
+        - subnet: '172.31.206.0/25'
+          gateway: '172.31.206.1'
+

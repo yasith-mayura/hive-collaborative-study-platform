@@ -1,8 +1,74 @@
-FROM node:20-alpine
+FROM node:20-alpine AS builder
 RUN apk add --no-cache curl
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
-EXPOSE 5173
-CMD ["npm", "run", "dev"]
+
+# Declare build args — these get baked into the Vite bundle
+# ARG VITE_FIREBASE_API_KEY
+# ARG VITE_FIREBASE_AUTH_DOMAIN
+# ARG VITE_FIREBASE_PROJECT_ID
+# ARG VITE_FIREBASE_STORAGE_BUCKET
+# ARG VITE_FIREBASE_MESSAGING_SENDER_ID
+# ARG VITE_FIREBASE_APP_ID
+# ARG VITE_FIREBASE_MEASUREMENT_ID
+# ARG VITE_BASE_URL
+
+# ARG VITE_API_GATEWAY_URL
+# ARG VITE_AUTH_SERVICE_URL
+# ARG VITE_USER_SERVICE_URL
+# ARG VITE_RESOURCE_SERVICE_URL
+# ARG VITE_NOTE_SERVICE_URL
+# ARG VITE_PROGRESS_SERVICE_URL
+# ARG VITE_SESSION_SERVICE_URL
+# ARG VITE_RAG_SERVICE_URL
+# ARG VITE_NOTIFICATION_SERVICE_URL
+
+
+# # Vite picks up ARGs that are set as ENV at build time
+# ENV VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY
+# ENV VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN
+# ENV VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID
+# ENV VITE_FIREBASE_STORAGE_BUCKET=$VITE_FIREBASE_STORAGE_BUCKET
+# ENV VITE_FIREBASE_MESSAGING_SENDER_ID=$VITE_FIREBASE_MESSAGING_SENDER_ID
+# ENV VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID
+# ENV VITE_FIREBASE_MEASUREMENT_ID=$VITE_FIREBASE_MEASUREMENT_ID
+# ENV VITE_BASE_URL=$VITE_BASE_URL
+# ENV VITE_API_GATEWAY_URL=$VITE_API_GATEWAY_URL
+
+# ENV VITE_API_GATEWAY_URL=$VITE_BASE_URL
+# ENV VITE_AUTH_SERVICE_URL=$VITE_BASE_URL
+# ENV VITE_USER_SERVICE_URL=$VITE_BASE_URL
+# ENV VITE_RESOURCE_SERVICE_URL=$VITE_BASE_URL
+# ENV VITE_CHAT_SERVICE_URL=$VITE_BASE_URL
+# ENV VITE_NOTE_SERVICE_URL=$VITE_BASE_URL
+# ENV VITE_PROGRESS_SERVICE_URL=$VITE_BASE_URL
+# ENV VITE_SESSION_SERVICE_URL=$VITE_BASE_URL
+# ENV VITE_RAG_SERVICE_URL=$VITE_BASE_URL
+# ENV VITE_NOTIFICATION_SERVICE_URL=$VITE_BASE_URL
+
+RUN npm run build
+
+# ====================== Production Stage ======================
+FROM nginx:stable-alpine
+
+# Copy built files to nginx default directory
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Optional: Copy custom nginx config for SPA routing + best practices
+COPY nginx-proxy.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+# At the end of your frontend Dockerfile, replace the default CMD:
+COPY ./nginx/docker-entrypoint.sh /docker-entrypoint.sh
+COPY ./nginx/templates/ /etc/nginx/templates/
+RUN chmod +x /docker-entrypoint.sh
+
+# Ensure envsubst is available (it's in gettext-base / libintl)
+RUN apk add --no-cache gettext
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+
+# CMD ["nginx", "-g", "daemon off;"]

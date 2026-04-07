@@ -41,26 +41,19 @@ check_service() {
 echo -e "${YELLOW}Checking all services...${NC}"
 echo ""
 
-# Check databases
-echo -e "${BLUE}Database:${NC}"
-if docker compose ps mongo --format json 2>/dev/null | jq -e 'if type == "array" then .[0].State == "running" else .State == "running" end' > /dev/null 2>&1; then
-  echo -e "  ${GREEN}✓${NC} MongoDB - ${GREEN}running${NC}"
-else
-  echo -e "  ${RED}✗${NC} MongoDB - ${RED}not running${NC}"
-  ALL_HEALTHY=false
-fi
-
-if docker compose ps pgvector --format json 2>/dev/null | jq -e 'if type == "array" then .[0].State == "running" else .State == "running" end' > /dev/null 2>&1; then
-  echo -e "  ${GREEN}✓${NC} PGVector - ${GREEN}running${NC}"
-else
-  echo -e "  ${RED}✗${NC} PGVector - ${RED}not running${NC}"
-  ALL_HEALTHY=false
-fi
-echo ""
+# # Check MongoDB
+# echo -e "${BLUE}Database:${NC}"
+# if docker compose ps mongo --format json 2>/dev/null | jq -e 'if type == "array" then .[0].State == "running" else .State == "running" end' > /dev/null 2>&1; then
+#   echo -e "  ${GREEN}✓${NC} MongoDB - ${GREEN}running${NC}"
+# else
+#   echo -e "  ${RED}✗${NC} MongoDB - ${RED}not running${NC}"
+#   ALL_HEALTHY=false
+# fi
+# echo ""
 
 # Check each service
 echo -e "${BLUE}Microservices:${NC}"
-check_service "API Gateway" "http://localhost:4000/health"
+# check_service "API Gateway" "http://localhost:4000/health"
 check_service "Auth Service" "http://localhost:3000/health"
 check_service "User Service" "http://localhost:3001/health"
 check_service "Resource Service" "http://localhost:3002/health"
@@ -72,7 +65,7 @@ check_service "RAG Service" "http://localhost:8000/health"
 echo ""
 
 echo -e "${BLUE}Frontend:${NC}"
-check_service "Frontend" "http://localhost:5173"
+check_service "Frontend" "http://localhost:80"
 echo ""
 
 # Summary

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import Modal from "@/components/ui/modal";
+import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Textinput from "@/components/ui/Textinput";
 import Notification from "@/components/ui/Notification";

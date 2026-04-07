@@ -1,0 +1,130 @@
+# docker-compose.override.ci.yml
+# Usage: docker compose -f docker-compose.yml -f docker-compose.override.ci.yml up --build
+services:
+  auth-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  user-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  resource-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  chat-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  note-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  progress-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  session-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+  
+  notification-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  rag-service:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    environment:
+      PGVECTOR_HOST: pgvector
+      PGVECTOR_PORT: 5432
+      PGVECTOR_DATABASE: hive_vectors
+      PGVECTOR_USER: hive_user
+      PGVECTOR_PASSWORD: hive_pass
+      PORT: 8000
+      GEMINI_API_KEY: AI$$$$$$A7Lkx0000000SwfXX$$$$$$$
+      S3_AWS_ACCESS_KEY_ID: AKIA######DX63CWOFC
+      S3_AWS_SECRET_ACCESS_KEY: 4IJr7i/M+zC22222226aKVpebS3339K
+      S3_AWS_REGION: ap-southeast-1
+      S3_BUCKET_NAME: hive-study-resources
+      EMBEDDING_MODEL: models/gemini-embedding-001
+      EMBEDDING_DIMENSIONS: 3072
+      GEMINI_MODEL: gemini-pro
+      TOP_K_CHUNKS: 3
+      MIN_SIMILARITY_SCORE: 0.5
+      CHUNK_SIZE: 1000
+      CHUNK_OVERLAP: 200
+      RESOURCE_SERVICE_URL: http://localhost:3002
+      OUT_OF_SYLLABUS_THRESHOLD: 0.5
+    
+  certbot:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    
+
+  frontend:
+    restart: "no"
+    ports:
+      - "8080:80"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    
+      
+  pgvector:
+    restart: "no"
+    healthcheck:
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    environment:
+      POSTGRES_USER: hive_user
+      POSTGRES_PASSWORD: hive_pass
+      POSTGRES_DB: hive_vectors
+    volumes:
+    - pgvector_data:/var/lib/postgresql/data
+    - ./init/pgvector-init.sql:/docker-entrypoint-initdb.d/01-init.sql

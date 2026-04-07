@@ -60,35 +60,21 @@ echo -e "${BLUE}║                   Starting Services                      ║
 echo -e "${BLUE}╚══════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# Stop any existing containers
-echo -e "${YELLOW}Stopping any existing containers...${NC}"
-#docker compose down > /dev/null 2>&1
-# Stop any services running already.
-# docker compose stop
-docker compose down
-
-# Clean docker system wide settings.
-docker system prune -a -f 
-
-# Clean some docker volumes.
-docker volume prune -f
-
-echo -e "${GREEN}✓ Cleaned up existing containers${NC}"
-echo ""
 
 # Start services
 echo -e "${YELLOW}Starting all services with Docker Compose...${NC}"
 echo -e "${BLUE}This may take a few minutes on first run...${NC}"
 echo ""
 
+
+docker compose down
+
 # Build all the images (including base images).
 docker compose build
 
 # Create containers of the docker stack.
-docker compose  up --no-start
+docker compose up -d
 
-# Start the docker stack.
-docker compose start
 
 
 if [ $? -ne 0 ]; then
