@@ -1,21 +1,3 @@
-# HTTPS server — loaded only when certs are present
-
-# ─── Rate limiting zones ───────────────────────────────────────────────────────
-limit_req_zone  $binary_remote_addr zone=api_limit:10m rate=10r/s;
-limit_conn_zone $binary_remote_addr zone=conn_limit:10m;
-
-# ─── Upstreams ─────────────────────────────────────────────────────────────────
-upstream us-user-service     { server user-service:3001;     keepalive 32; }
-upstream us-auth-service     { server auth-service:3000;     keepalive 32; }
-upstream us-resource-service { server resource-service:3002; keepalive 32; }
-upstream us-session-service  { server session-service:3006;  keepalive 32; }
-upstream us-chat-service     { server chat-service:3003;     keepalive 32; }
-upstream us-progress-service { server progress-service:3005; keepalive 32; }
-upstream us-rag-service { server rag-service:8000; keepalive 32; }
-upstream us-note-service  { server note-service:3004;    keepalive 32; }  # ← uncomment & set port
-upstream us-notification-service  { server notification-service:3007;    keepalive 32; }  # ← uncomment & set port
-
-
 # Redirect HTTP → HTTPS (replaces the HTTP server's current catch-all behavior)
 server {
     listen 80;
