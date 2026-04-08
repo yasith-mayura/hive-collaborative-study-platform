@@ -308,7 +308,7 @@ services:
       VITE_SESSION_SERVICE_URL: ${VITE_BASE_URL}
       VITE_RAG_SERVICE_URL: ${VITE_BASE_URL}
       VITE_NOTIFICATION_SERVICE_URL: ${VITE_BASE_URL}
-      NGINX_APP0_DOMAIN: ${NGINX_APP0_DOMAIN}
+      NGINX_APP0_DOMAIN: ${NGINX_APP0_DOMAIN}  
       
     volumes:
       - certbot-webroot:/var/www/certbot:ro
@@ -356,8 +356,8 @@ services:
       POSTGRES_USER: ${PGVECTOR_USER}
       POSTGRES_PASSWORD: ${PGVECTOR_PASSWORD}
       POSTGRES_DB: ${PGVECTOR_DATABASE}
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"
     networks:
       local:
     volumes:

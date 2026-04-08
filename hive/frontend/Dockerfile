@@ -61,13 +61,13 @@ COPY nginx-proxy.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
-# At the end of your frontend Dockerfile, replace the default CMD:
-COPY ./nginx/docker-entrypoint.sh /docker-entrypoint.sh
-COPY ./nginx/templates/ /etc/nginx/templates/
-RUN chmod +x /docker-entrypoint.sh
+# # At the end of your frontend Dockerfile, replace the default CMD:
+# COPY ./nginx/docker-entrypoint.sh /docker-entrypoint.sh
+# COPY ./nginx/templates/ /etc/nginx/templates/
+# RUN chmod +x /docker-entrypoint.sh
 
-# Ensure envsubst is available (it's in gettext-base / libintl)
-RUN apk add --no-cache gettext
+# # Ensure envsubst is available (it's in gettext-base / libintl)
+# RUN apk add --no-cache gettext
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
 
