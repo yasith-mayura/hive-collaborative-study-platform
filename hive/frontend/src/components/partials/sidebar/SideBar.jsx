@@ -232,14 +232,14 @@ const AppSidebar = () => {
       {/* Decorative Bottom Card & Switch Mode — only for admins */}
       <div className="absolute bottom-8 left-0 w-full px-6 space-y-4">
 
-        {(role === "admin" || role === "superadmin") && (
+        {(role === "admin") && (
           <button
             onClick={handleModeSwitch}
             className={`flex items-center w-full px-5 py-3.5 rounded-full bg-secondary-50 hover:bg-secondary-100 text-secondary-700 font-bold transition-all text-force-tiny ${!isExpanded && !isMobileOpen ? "justify-center" : ""}`}
             style={{ fontSize: "12px" }}
           >
             <Icon
-              icon={viewMode === "admin" || viewMode === "superadmin" ? "heroicons-outline:academic-cap" : "heroicons-outline:shield-check"}
+              icon={viewMode === "admin" ? "heroicons-outline:academic-cap" : "heroicons-outline:shield-check"}
               className="w-5 h-5 flex-shrink-0"
             />
             {(isExpanded || isMobileOpen) && (
@@ -247,7 +247,7 @@ const AppSidebar = () => {
                 className="ml-3 uppercase tracking-widest font-bold text-force-tiny"
                 style={{ fontSize: "12px" }}
               >
-                {viewMode === "admin" || viewMode === "superadmin" ? "Student Mode" : "Admin Mode"}
+                {viewMode === "admin" ? "Student Mode" : "Admin Mode"}
               </span>
             )}
           </button>
