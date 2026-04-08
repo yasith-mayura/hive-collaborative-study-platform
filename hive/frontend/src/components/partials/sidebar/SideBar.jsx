@@ -158,7 +158,7 @@ const AppSidebar = () => {
 
   return (
     <aside
-      className={`fixed top-4 left-0 lg:left-4 bottom-4 h-[calc(100vh-2rem)] bg-white text-secondary-500 transition-transform duration-300 ease-in-out border border-gray-100 z-[60] shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem]
+      className={`fixed top-4 bottom-4 left-0 lg:left-4 h-auto bg-white text-secondary-500 transition-transform duration-300 ease-in-out border border-gray-100 z-[60] shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem]
         ${isExpanded ? "lg:w-[300px]" : "w-[300px] lg:w-[88px]"}
         ${isMobileOpen ? "translate-x-4 lg:translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
     >
