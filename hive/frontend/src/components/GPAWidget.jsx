@@ -140,12 +140,12 @@ export default function GPAWidget({ maxGpa = 4.0 }) {
         <div className="flex flex-col items-center z-10 text-center animate-in fade-in zoom-in duration-700">
           <span className="text-2xl mb-0.5 group-hover:scale-110 transition-transform">🐝</span>
           <span className="text-[12px] font-bold text-secondary-500 tracking-tight mb-[-2px]">
-            Cumulative GPA
+            GPA
           </span>
-          <span className="text-3xl font-extrabold text-secondary-900 tabular-nums">
+          <span className="text-2xl font-extrabold text-secondary-900 tabular-nums">
             {gpa !== null ? gpa.toFixed(2) : "0.00"}
           </span>
-          <span className="text-[12px] font-medium text-secondary-400">
+          <span className="text-[10px] font-medium text-secondary-400">
             Out of {maxGpa.toFixed(1)}
           </span>
         </div>

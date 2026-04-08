@@ -4,12 +4,18 @@ const FlashCardDeck = require("../models/flashCardModel");
 
 //Note Model functions
 
-const generateAutoTitle = (content = '') =>
-  content
-    .trim()
+const stripHtml = (html) => {
+  if (!html) return '';
+  return html.replace(/<[^>]*>?/gm, '');
+};
+
+const generateAutoTitle = (content = '') => {
+  const plainText = stripHtml(content).trim();
+  return plainText
     .split(/\s+/)
     .slice(0, 4)
     .join(' ');
+};
 
 // GET notes (for logged-in user)
 async function getNotes(req, res) {

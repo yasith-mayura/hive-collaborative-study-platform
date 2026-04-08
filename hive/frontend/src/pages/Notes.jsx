@@ -57,8 +57,10 @@ export default function NotesPage() {
     return doc.body.textContent || "";
   };
 
-  const getAutoTopic = (content = "") =>
-    content.trim().split(/\s+/).slice(0, 4).join(" ");
+  const getAutoTopic = (content = "") => {
+    const plainText = stripHtml(content).trim();
+    return plainText.split(/\s+/).slice(0, 4).join(" ");
+  };
 
   const filteredNotes = notes.filter((note) =>
     (note.title || note.content)
@@ -139,22 +141,30 @@ export default function NotesPage() {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += transcript + " "; // append only final
+          finalTranscript += (finalTranscript.length > 0 && !finalTranscript.endsWith(" ") ? " " : "") + transcript;
         } else {
           interimTranscript += transcript;
         }
       }
-      setText(finalTranscript + interimTranscript); // show both final + interim
+      // Combine final and interim transcripts
+      setText(finalTranscript + interimTranscript);
     };
 
-    recognitionRef.current.onerror = (err) => console.error(err);
+    recognitionRef.current.onerror = (err) => console.error("Speech recognition error:", err);
 
     recognitionRef.current.onend = () => {
-      if (isListening) recognitionRef.current.start(); // auto-restart
+      if (isListening) {
+        try {
+          recognitionRef.current.start(); 
+        } catch (e) {
+          console.log("Speech recognition already started");
+        }
+      }
     };
 
     recognitionRef.current.start();
   };
+
   const stopVoice = () => {
     setIsListening(false);
     recognitionRef.current?.stop();
@@ -290,8 +300,7 @@ export default function NotesPage() {
                 <div className="flex items-center gap-3 min-w-0">
                   <HiDocumentText className="text-gray-600 text-lg shrink-0" />
                   <span className="text-3xl truncate">
-                    {note.title ||
-                      stripHtml(note.content).split(" ").slice(0, 4).join(" ")}
+                    {stripHtml(note.title || getAutoTopic(note.content))}
                   </span>
                 </div>
 
@@ -385,8 +394,7 @@ export default function NotesPage() {
                         setSearchText("");
                       }}
                     >
-                      {note.title ||
-                        stripHtml(note.content).split(" ").slice(0, 4).join(" ")}
+                      {stripHtml(note.title || getAutoTopic(note.content))}
                     </div>
                   ))
                 ) : (
